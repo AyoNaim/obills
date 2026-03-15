@@ -5,6 +5,7 @@ import { ArrowLeft, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function ForgotPasswordEmail() {
   const router = useRouter();
@@ -123,7 +124,7 @@ export default function ForgotPasswordEmail() {
           <ArrowLeft className="w-7 h-7 text-black" />
         </button>
         <button className="text-[#00A859] font-semibold text-lg active:opacity-70 transition-opacity">
-          Sign Up
+          <Link href={"/signup"}>Sign Up</Link>
         </button>
       </div>
 

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, ArrowUpRight } from "lucide-react";
+import Link from "next/link";
 
 const Login = () => {
   // We keep the state intuitive for the UI
@@ -211,7 +212,7 @@ const Login = () => {
               type="button"
               className="text-xs text-gray-600 underline decoration-gray-400 underline-offset-4 hover:text-black transition-colors"
             >
-              Forgot your password?
+              <Link href={"/forgot"}>Forgot your password?</Link>
             </button>
           </div>
         </form>

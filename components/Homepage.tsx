@@ -4,7 +4,13 @@ import { Haptics, ImpactStyle } from "@capacitor/haptics";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import {
+  motion,
+  useMotionValue,
+  useTransform,
+  animate,
+  AnimatePresence,
+} from "framer-motion";
 import {
   MoreHorizontal,
   MessageSquare,
@@ -16,6 +22,10 @@ import {
   Sun,
   Moon,
   RefreshCw,
+  X,
+  ArrowRightLeft,
+  CheckCircle2,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -68,6 +78,12 @@ export default function FintechDashboard() {
     phone: "",
   });
 
+  // --- MODAL STATES ---
+  const [activeModal, setActiveModal] = useState<
+    null | "selection" | "action" | "success"
+  >(null);
+  const [isProcessingTransfer, setIsProcessingTransfer] = useState(false);
+
   // Framer Motion values for the OPay Pull-to-Refresh
   const pullDistance = useMotionValue(0);
   const pullOpacity = useTransform(pullDistance, [0, 80], [0, 1]);
@@ -100,7 +116,6 @@ export default function FintechDashboard() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      // 1. Get phone directly from storage for the payload
       const rawSession = localStorage.getItem("user_session");
       if (!rawSession) return;
       const session = JSON.parse(rawSession);
@@ -109,7 +124,7 @@ export default function FintechDashboard() {
       if (!phone) throw new Error("No phone found for refresh");
 
       const response = await fetch(
-        "https://pancity.com.ng/app/api/user/app-refresh/index.php",
+        "https://obills.com.ng/app/api/user/app-refresh/index.php",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -137,9 +152,88 @@ export default function FintechDashboard() {
       console.error("Refresh failed:", error);
     } finally {
       setIsRefreshing(false);
-      // Snap the pull gesture back to 0
       animate(pullDistance, 0, { type: "spring", stiffness: 300, damping: 30 });
     }
+  };
+
+  // --- CASHBACK TRANSFER LOGIC ---
+  const handleTransferCashback = async () => {
+    setIsProcessingTransfer(true);
+    await Haptics.impact({ style: ImpactStyle.Medium });
+
+    try {
+      const rawSession = localStorage.getItem("user_session");
+      if (!rawSession) return;
+      const session = JSON.parse(rawSession);
+
+      const response = await fetch(
+        "https://obills.com.ng/app/api/user/cashback-transfer/index.php",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: session.user_data?.phone }),
+        }
+      );
+
+      const result = await response.json();
+      if (result.status === "success") {
+        setActiveModal("success");
+        handleRefresh(); // Refresh balances
+      } else {
+        alert(result.msg || "Transfer failed");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsProcessingTransfer(false);
+    }
+  };
+
+  // --- SERVICE SUGGESTION HANDLER ---
+  const handleSuggestService = async () => {
+    // Trigger haptic feedback
+    await Haptics.impact({ style: ImpactStyle.Medium });
+
+    const adminPhone = "2349032139771";
+    const message =
+      "Hello, I am using the Obills App. I would like to suggest a new service: ";
+
+    // Open WhatsApp with the pre-filled message
+    window.open(
+      `https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`,
+      "_blank"
+    );
+  };
+
+  // --- AIRTIME TO CASH HANDLER ---
+  const handleAirtimeToCash = async () => {
+    // 1. Trigger haptic feedback for a premium feel
+    await Haptics.impact({ style: ImpactStyle.Medium });
+
+    // 2. Define the admin phone number (no + sign)
+    const adminPhone = "2349032139771";
+
+    // 3. Define and encode the automated message
+    const message = encodeURIComponent(
+      "hey there, i want to exchange my airtime for cash"
+    );
+
+    // 4. Redirect the user to WhatsApp
+    window.open(`https://wa.me/${adminPhone}?text=${message}`, "_blank");
+  };
+
+  // --- GENERAL CHAT HANDLER ---
+  const handleGeneralChat = async () => {
+    await Haptics.impact({ style: ImpactStyle.Medium });
+
+    const adminPhone = "234903213771"; // Your admin number
+    const userName = userData.displayName || "User";
+    const message = `Hello Admin, I am ${userName}. I need assistance with the Obills App.`;
+
+    window.open(
+      `https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`,
+      "_blank"
+    );
   };
 
   const onDragEnd = () => {
@@ -178,6 +272,147 @@ export default function FintechDashboard() {
         isDarkMode ? "bg-[#0f0a14]" : "bg-slate-50"
       }`}
     >
+      {/* --- MODAL SYSTEM --- */}
+      <AnimatePresence>
+        {activeModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setActiveModal(null)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className={`fixed bottom-0 left-0 right-0 z-[101] p-6 rounded-t-[2.5rem] shadow-2xl ${
+                isDarkMode
+                  ? "bg-[#1c1425] text-white"
+                  : "bg-white text-slate-900"
+              }`}
+            >
+              <div className="w-12 h-1.5 bg-gray-600/30 rounded-full mx-auto mb-6" />
+
+              {activeModal === "selection" && (
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-xl font-bold">Cashback Wallet</h3>
+                    <X
+                      onClick={() => setActiveModal(null)}
+                      className="opacity-50 cursor-pointer"
+                    />
+                  </div>
+                  <div
+                    className={`p-5 rounded-2xl border ${
+                      isDarkMode
+                        ? "border-white/5 bg-white/5"
+                        : "border-slate-100 bg-slate-50"
+                    }`}
+                  >
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-emerald-500 mb-1">
+                      Total Available
+                    </p>
+                    <p className="text-4xl font-bold">₦{userData.cashback}</p>
+                  </div>
+                  <Button
+                    onClick={() => setActiveModal("action")}
+                    className="w-full py-7 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-lg active:scale-95 transition-transform"
+                  >
+                    <ArrowRightLeft className="mr-2 h-5 w-5" /> Transfer to Main
+                    Balance
+                  </Button>
+                </div>
+              )}
+
+              {activeModal === "action" && (
+                <div className="space-y-6 text-center">
+                  <h3 className="text-xl font-bold">Confirm Transfer</h3>
+                  <p className="text-sm opacity-70">
+                    Are you sure you want to move{" "}
+                    <span className="text-emerald-500 font-bold">
+                      ₦{userData.cashback}
+                    </span>{" "}
+                    to your main wallet?
+                  </p>
+
+                  <div className="flex items-center justify-center gap-6 py-4">
+                    <div className="text-center">
+                      <div className="w-14 h-14 rounded-2xl bg-orange-500/10 flex items-center justify-center mx-auto mb-2 text-2xl">
+                        💰
+                      </div>
+                      <p className="text-[10px] font-bold opacity-50 uppercase">
+                        Cashback
+                      </p>
+                    </div>
+                    <motion.div
+                      animate={{ x: [0, 5, 0] }}
+                      transition={{ repeat: Infinity, duration: 1.5 }}
+                    >
+                      <ArrowRightLeft className="text-emerald-500 h-6 w-6" />
+                    </motion.div>
+                    <div className="text-center">
+                      <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-2 text-2xl">
+                        🏦
+                      </div>
+                      <p className="text-[10px] font-bold opacity-50 uppercase">
+                        Main Wallet
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button
+                      variant="ghost"
+                      onClick={() => setActiveModal("selection")}
+                      className="flex-1 py-6 rounded-xl"
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      disabled={isProcessingTransfer}
+                      onClick={handleTransferCashback}
+                      className="flex-[2] py-6 rounded-xl bg-emerald-500 text-white font-bold"
+                    >
+                      {isProcessingTransfer ? (
+                        <Loader2 className="animate-spin h-5 w-5" />
+                      ) : (
+                        "Confirm & Transfer"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {activeModal === "success" && (
+                <div className="space-y-6 text-center py-4">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="flex justify-center"
+                  >
+                    <CheckCircle2 className="w-20 h-20 text-emerald-500" />
+                  </motion.div>
+                  <h3 className="text-2xl font-bold">Transfer Successful!</h3>
+                  <p className="opacity-70 px-6">
+                    Your cashback has been successfully moved to your main
+                    wallet balance.
+                  </p>
+                  <Button
+                    onClick={() => setActiveModal(null)}
+                    className="w-full py-6 rounded-2xl bg-slate-800 text-white font-bold"
+                  >
+                    Done
+                  </Button>
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* OPay Style Floating Spinner */}
       <motion.div
         style={{
@@ -259,7 +494,9 @@ export default function FintechDashboard() {
                 : "bg-white shadow-sm text-emerald-600"
             }`}
           >
-            <Clock className="w-5 h-5" />
+            <Link href={"/transactions"}>
+              <Clock className="w-5 h-5" />
+            </Link>
           </div>
         </header>
 
@@ -316,7 +553,7 @@ export default function FintechDashboard() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={handleRefresh}
+                  onClick={() => setActiveModal("selection")}
                   className={`rounded-full h-9 w-9 ${
                     isDarkMode
                       ? "bg-gray-800/50 text-white"
@@ -338,7 +575,10 @@ export default function FintechDashboard() {
                 </span>
                 {userData.balance}
               </h2>
-              <p className="text-xs flex items-center gap-2 mt-2">
+              <div
+                onClick={() => setActiveModal("selection")}
+                className="text-xs flex items-center gap-2 mt-2 cursor-pointer active:opacity-60 transition-all"
+              >
                 <span className="bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full font-bold">
                   ₦{userData.cashback}
                 </span>
@@ -349,7 +589,7 @@ export default function FintechDashboard() {
                 >
                   Available Cashback
                 </span>
-              </p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -386,14 +626,14 @@ export default function FintechDashboard() {
               icon="📺"
             />
           </Link>
-          <Link href={"./fund"}>
+          <div onClick={handleAirtimeToCash}>
             <ServiceItem
               isDark={isDarkMode}
-              label="Fund Wallet"
+              label="Airtime 2 cash"
               color="bg-[#fce5b4]"
               icon="💳"
             />
-          </Link>
+          </div>
           <Link href={"./electricity"}>
             <ServiceItem
               isDark={isDarkMode}
@@ -411,7 +651,10 @@ export default function FintechDashboard() {
             />
           </Link>
 
-          <div className="col-span-3 flex flex-col items-center mt-6 gap-4">
+          <div
+            className="col-span-3 flex flex-col items-center mt-6 gap-4"
+            onClick={handleSuggestService}
+          >
             <p
               className={`text-[11px] uppercase tracking-widest font-bold ${
                 isDarkMode ? "text-gray-500" : "text-slate-400"
@@ -431,7 +674,10 @@ export default function FintechDashboard() {
             </Button>
           </div>
 
-          <div className="absolute right-4 -bottom-6 bg-emerald-500 p-4 rounded-2xl shadow-lg shadow-emerald-500/20 active:scale-90 transition-transform cursor-pointer">
+          <div
+            className="absolute right-4 -bottom-6 bg-emerald-500 p-4 rounded-2xl shadow-lg shadow-emerald-500/20 active:scale-90 transition-transform cursor-pointer"
+            onClick={handleGeneralChat}
+          >
             <MessageSquare className="w-6 h-6 text-white" />
           </div>
         </div>

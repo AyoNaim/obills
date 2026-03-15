@@ -98,7 +98,7 @@ export default function PersonalDetailsScreen() {
     setLoading(true);
     try {
       const response = await fetch(
-        "https://pancity.com.ng/app/api/user/signup/index.php",
+        "https://obills.com.ng/app/api/user/signup/index.php",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

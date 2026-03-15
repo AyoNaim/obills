@@ -1,3 +1,4 @@
+"use client";
 import React, { useEffect, useState } from "react";
 import {
   ArrowUpRight,
@@ -28,11 +29,16 @@ const TransactionPage = () => {
   useEffect(() => {
     const loadTransactions = async () => {
       try {
+        const token = localStorage.getItem("userToken");
         const response = await fetch(
-          "https://pancity.com.ng/app/api/transactions/index.php",
+          "https://obills.com.ng/app/api/transactions/index.php",
           {
             method: "GET",
             credentials: "include",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
           }
         );
         const result = await response.json();

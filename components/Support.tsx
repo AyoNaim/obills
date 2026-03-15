@@ -57,13 +57,16 @@ export default function SupportPage() {
     await Haptics.impact({ style: ImpactStyle.Heavy });
 
     try {
-      const response = await fetch("/api/issue/index.php", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
+      const response = await fetch(
+        "https://obills.com.ng/app/api/issues/index.php",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        }
+      );
 
       const result = await response.json();
 

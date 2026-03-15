@@ -65,7 +65,8 @@ export default function FundAccountPage() {
     const raw = localStorage.getItem("user_session");
     if (!raw) return;
     const session = JSON.parse(raw);
-    const token = session.user_data?.sApiKey;
+    // const token = session.user_data?.sApiKey;
+    const token = localStorage.getItem("userToken");
 
     setBalance(parseFloat(session.user_data?.balance || "0").toFixed(2));
 
@@ -112,7 +113,8 @@ export default function FundAccountPage() {
   // 2. Action: Generate Virtual Account
   const handleGenerateAccount = async () => {
     const raw = localStorage.getItem("user_session");
-    const token = JSON.parse(raw || "{}").user_data?.sApiKey;
+    // const token = JSON.parse(raw || "{}").user_data?.sApiKey;
+    const token = localStorage.getItem("userToken");
 
     setIsGenerating(true);
     await Haptics.impact({ style: ImpactStyle.Heavy });
