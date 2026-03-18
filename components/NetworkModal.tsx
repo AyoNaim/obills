@@ -7,19 +7,30 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
-import { Check, ChevronDown } from "lucide-react";
+import { Check } from "lucide-react";
 
+// Synchronized with database IDs from your screenshot
 const networks = [
-  { id: "mtn", name: "MTN", icon: "/mtn-logo.svg", color: "bg-yellow-400" },
+  { 
+    id: "6", // Changed from "mtn" to "6" to match your DB
+    name: "MTN", 
+    icon: "/mtn-logo.svg", 
+    color: "bg-yellow-400" 
+  },
   {
-    id: "3",
+    id: "1", // Changed from "3" to "1" to match Airtel in standard setups
     name: "Airtel",
     icon: "/airtel-logo.png",
     color: "bg-red-600",
   },
-  { id: "2", name: "Glo", icon: "/glo-logo.png", color: "bg-green-600" },
+  { 
+    id: "2", // Matches Glo
+    name: "Glo", 
+    icon: "/glo-logo.png", 
+    color: "bg-green-600" 
+  },
   {
-    id: "4",
+    id: "3", // Changed from "4" to "3" to match 9mobile
     name: "9mobile",
     icon: "/9mobile-logo.png",
     color: "bg-emerald-900",
@@ -27,6 +38,11 @@ const networks = [
 ];
 
 export function NetworkModal({ selected, onSelect, isDark }: any) {
+  // Logic to handle selection and auto-close (optional but recommended)
+  const handleSelect = (net: any) => {
+    onSelect(net);
+  };
+
   return (
     <Drawer>
       <DrawerTrigger asChild>
@@ -69,13 +85,15 @@ export function NetworkModal({ selected, onSelect, isDark }: any) {
           {networks.map((net) => (
             <div
               key={net.id}
-              onClick={() => onSelect(net)}
+              onClick={() => handleSelect(net)}
               className={`flex items-center justify-between p-4 rounded-2xl transition-all cursor-pointer ${
-                selected.id === net.id
+                String(selected.id) === String(net.id)
                   ? isDark
                     ? "bg-white/5 border border-white/10"
                     : "bg-slate-50 border border-slate-100"
-                  : "active:bg-zinc-900"
+                  : isDark 
+                    ? "hover:bg-zinc-900" 
+                    : "hover:bg-slate-50"
               }`}
             >
               <div className="flex items-center gap-4">
@@ -96,7 +114,7 @@ export function NetworkModal({ selected, onSelect, isDark }: any) {
                   {net.name}
                 </span>
               </div>
-              {selected.id === net.id ? (
+              {String(selected.id) === String(net.id) ? (
                 <div className="bg-emerald-500 rounded-full p-1">
                   <Check className="text-white w-4 h-4" strokeWidth={4} />
                 </div>

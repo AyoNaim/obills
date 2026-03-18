@@ -7,110 +7,9 @@ import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
 import { NetworkModal } from "./NetworkModal";
 import { useRouter } from "next/navigation";
 
-const DATA_PLANS: Record<string, any[]> = {
-  mtn: [
-    {
-      id: "403",
-      volume: "500MB",
-      amount: "100",
-      duration: "30 Days",
-      tag: "CORPORATE",
-    },
-    {
-      id: "117",
-      volume: "1GB",
-      amount: "150",
-      duration: "30 Days",
-      tag: "SME",
-    },
-    {
-      id: "119",
-      volume: "1.5GB",
-      amount: "210",
-      duration: "30 Days",
-      tag: "SME",
-    },
-    {
-      id: "118",
-      volume: "2GB",
-      amount: "290",
-      duration: "30 Days",
-      tag: "SME",
-    },
-    {
-      id: "122",
-      volume: "3GB",
-      amount: "500",
-      duration: "30 Days",
-      tag: "SME",
-    },
-    {
-      id: "124",
-      volume: "4GB",
-      amount: "600",
-      duration: "30 Days",
-      tag: "SME",
-    },
-    {
-      id: "120",
-      volume: "5GB",
-      amount: "730",
-      duration: "30 Days",
-      tag: "SME",
-    },
-    {
-      id: "125",
-      volume: "7GB",
-      amount: "1000",
-      duration: "30 Days",
-      tag: "SME",
-    },
-    {
-      id: "121",
-      volume: "10GB",
-      amount: "1380",
-      duration: "30 Days",
-      tag: "SME",
-    },
-  ],
-  airtel: [
-    {
-      id: "378",
-      volume: "150MB",
-      amount: "85",
-      duration: "1 Day",
-      tag: "COUPON",
-    },
-    {
-      id: "374",
-      volume: "1GB",
-      amount: "810",
-      duration: "7 Days",
-      tag: "GIFTING",
-    },
-    {
-      id: "375",
-      volume: "2GB",
-      amount: "1500",
-      duration: "30 Days",
-      tag: "GIFTING",
-    },
-  ],
-  glo: [
-    {
-      id: "379",
-      volume: "2GB",
-      amount: "1100",
-      duration: "2 Days",
-      tag: "SME",
-    },
-  ],
-  "9mobile": [],
-};
-
 const NETWORK_DATA = [
   {
-    id: "1",
+    id: "6", // Matches '6' in your screenshot for MTN
     name: "MTN",
     prefixes: [
       "0803",
@@ -135,7 +34,7 @@ const NETWORK_DATA = [
     color: "bg-green-500",
   },
   {
-    id: "4",
+    id: "1",
     name: "AIRTEL",
     prefixes: [
       "0802",
@@ -164,9 +63,11 @@ const NETWORK_DATA = [
 export default function BuyDataPage() {
   const router = useRouter();
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [phoneNumber, setPhoneNumber] = useState("09032139771");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [balance, setBalance] = useState("0.00");
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingPlans, setIsFetchingPlans] = useState(true);
+  const [allPlans, setAllPlans] = useState<any[]>([]);
   const [selectedNetwork, setSelectedNetwork] = useState(NETWORK_DATA[0]);
   const [message, setMessage] = useState<{
     type: "success" | "error";
@@ -176,12 +77,47 @@ export default function BuyDataPage() {
   useEffect(() => {
     const savedTheme = localStorage.getItem("app_theme");
     setIsDarkMode(savedTheme !== "light");
+
     const raw = localStorage.getItem("user_session");
     if (raw) {
       const session = JSON.parse(raw);
       setBalance(session.user_data?.balance || "0.00");
     }
+    fetchPlans();
   }, []);
+
+  const getHandshake = () => {
+    const lagosTime = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Africa/Lagos",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const [d, m, y] = lagosTime.split("/");
+    return `Token ${y}${m}${d}`;
+  };
+
+  const fetchPlans = async () => {
+    try {
+      setIsFetchingPlans(true);
+      const token = getHandshake();
+      const response = await fetch(
+        "https://obills.com.ng/app/api/data/plans/index.php",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: token },
+        }
+      );
+      const result = await response.json();
+      if (result.status === "success") {
+        setAllPlans(result.data);
+      }
+    } catch (err) {
+      console.error("Failed to load plans", err);
+    } finally {
+      setIsFetchingPlans(false);
+    }
+  };
 
   useEffect(() => {
     if (phoneNumber.length >= 4) {
@@ -211,9 +147,7 @@ export default function BuyDataPage() {
       const raw = localStorage.getItem("user_session");
       if (!raw) throw new Error("No session found");
       const session = JSON.parse(raw);
-
-      // FIX: Prioritize phone number since the 'token' field contains a date bug
-      const authToken = session.token;
+      const authToken = getHandshake();
 
       const response = await fetch(
         "https://obills.com.ng/app/api/data/index.php",
@@ -221,13 +155,12 @@ export default function BuyDataPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Token: authToken,
+            Authorization: authToken,
           },
           body: JSON.stringify({
-            token: authToken,
             network: selectedNetwork.id,
             phone: phoneNumber,
-            plan: plan.id,
+            plan: plan.pld, // Using 'pld' from your database screenshot
             ref: `DATA_${Date.now()}`,
           }),
         }
@@ -235,33 +168,31 @@ export default function BuyDataPage() {
 
       const result = await response.json();
 
-      if (result.status === "success") {
+      if (result.status === "success" || result.status === "successful") {
         const updatedBalance = (
-          parseFloat(balance) - parseFloat(plan.amount)
+          parseFloat(balance) - parseFloat(plan.userprice)
         ).toFixed(2);
-        const sessionData = JSON.parse(raw);
-        if (sessionData.user_data) {
-          sessionData.user_data.balance = updatedBalance;
-          localStorage.setItem("user_session", JSON.stringify(sessionData));
-        }
         setBalance(updatedBalance);
         setMessage({
           type: "success",
-          text: result.msg || "Data Purchased Successfully!",
+          text: result.msg || "Purchased Successfully!",
         });
         await Haptics.notification({ type: NotificationType.Success });
       } else {
-        setMessage({ type: "error", text: result.msg || "Transaction Failed" });
-        await Haptics.notification({ type: NotificationType.Error });
+        throw new Error(result.msg || "Transaction Failed");
       }
-    } catch (err) {
-      setMessage({ type: "error", text: "Connection error occurred" });
+    } catch (err: any) {
+      setMessage({ type: "error", text: err.message || "Connection error" });
+      await Haptics.notification({ type: NotificationType.Error });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const currentPlans = DATA_PLANS[selectedNetwork.name.toLowerCase()] || [];
+  // Dynamically filter plans based on the selected network's ID
+  const currentPlans = allPlans.filter(
+    (plan) => String(plan.datanetwork) === selectedNetwork.id
+  );
 
   return (
     <div
@@ -370,10 +301,14 @@ export default function BuyDataPage() {
           <div className="h-[1px] flex-1 bg-current opacity-5 ml-4" />
         </div>
 
-        {currentPlans.length > 0 ? (
+        {isFetchingPlans ? (
+          <div className="flex justify-center py-10">
+            <Loader2 className="animate-spin text-emerald-500" />
+          </div>
+        ) : currentPlans.length > 0 ? (
           currentPlans.map((plan) => (
             <div
-              key={plan.id}
+              key={`${plan.pld} + ${Math.random()}`}
               onClick={(e) => !isLoading && handlePurchase(e, plan)}
               className={`group rounded-[2rem] p-5 flex justify-between items-center border transition-all cursor-pointer active:scale-95 duration-300 ${
                 isDarkMode
@@ -383,7 +318,7 @@ export default function BuyDataPage() {
             >
               <div className="space-y-3">
                 <p className="text-2xl font-black tracking-tighter group-hover:text-emerald-500 transition-colors">
-                  {plan.volume}
+                  {plan.name}
                 </p>
                 <div className="flex gap-2">
                   <span
@@ -393,10 +328,10 @@ export default function BuyDataPage() {
                         : "bg-slate-100 text-slate-500"
                     }`}
                   >
-                    {plan.duration}
+                    {plan.day} Days
                   </span>
                   <span className="bg-emerald-500/10 text-emerald-500 text-[9px] px-3 py-1 rounded-lg font-black uppercase tracking-tighter">
-                    {plan.tag}
+                    {plan.type}
                   </span>
                 </div>
               </div>
@@ -411,7 +346,7 @@ export default function BuyDataPage() {
                 {isLoading ? (
                   <Loader2 className="animate-spin" size={20} />
                 ) : (
-                  `₦${plan.amount}`
+                  `₦${plan.userprice}`
                 )}
               </Button>
             </div>
