@@ -11,23 +11,23 @@ import { Check } from "lucide-react";
 
 // Synchronized with database IDs from your screenshot
 const networks = [
-  { 
-    id: "6", // Changed from "mtn" to "6" to match your DB
-    name: "MTN", 
-    icon: "/mtn-logo.svg", 
-    color: "bg-yellow-400" 
+  {
+    id: "1",
+    name: "MTN",
+    icon: "/mtn-logo.svg",
+    color: "bg-yellow-400",
   },
   {
-    id: "1", // Changed from "3" to "1" to match Airtel in standard setups
+    id: "4", // Changed from "3" to "1" to match Airtel in standard setups
     name: "Airtel",
     icon: "/airtel-logo.png",
     color: "bg-red-600",
   },
-  { 
+  {
     id: "2", // Matches Glo
-    name: "Glo", 
-    icon: "/glo-logo.png", 
-    color: "bg-green-600" 
+    name: "Glo",
+    icon: "/glo-logo.png",
+    color: "bg-green-600",
   },
   {
     id: "3", // Changed from "4" to "3" to match 9mobile
@@ -91,9 +91,9 @@ export function NetworkModal({ selected, onSelect, isDark }: any) {
                   ? isDark
                     ? "bg-white/5 border border-white/10"
                     : "bg-slate-50 border border-slate-100"
-                  : isDark 
-                    ? "hover:bg-zinc-900" 
-                    : "hover:bg-slate-50"
+                  : isDark
+                  ? "hover:bg-zinc-900"
+                  : "hover:bg-slate-50"
               }`}
             >
               <div className="flex items-center gap-4">

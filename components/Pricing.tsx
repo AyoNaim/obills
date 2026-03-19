@@ -44,7 +44,12 @@ export default function PricingsPage() {
     electricity: [
       { disco: "Ikeja Electric", type: "Prepaid", fee: "₦0", min: "₦500" },
       { disco: "Eko Electric", type: "Prepaid", fee: "₦0", min: "₦500" },
-      { disco: "Abuja Electric", type: "Prepaid", fee: "₦1,000", min: "₦1,000" },
+      {
+        disco: "Abuja Electric",
+        type: "Prepaid",
+        fee: "₦1,000",
+        min: "₦1,000",
+      },
     ],
   });
 
@@ -66,14 +71,14 @@ export default function PricingsPage() {
   // Helper for Data Networks
   const getNetworkName = (id: any) => {
     const val = String(id);
-    const maps: any = { 
-      "1": "Airtel", 
-      "2": "Glo", 
-      "3": "9Mobile", 
+    const maps: any = {
+      "1": "Airtel",
+      "2": "Glo",
+      "3": "9Mobile",
       "6": "MTN",
-      "mtn": "MTN",
-      "glo": "Glo",
-      "airtel": "Airtel"
+      mtn: "MTN",
+      glo: "Glo",
+      airtel: "Airtel",
     };
     return maps[val] || maps[val.toLowerCase()] || "Network";
   };
@@ -85,7 +90,7 @@ export default function PricingsPage() {
       "1": "GOtv",
       "2": "DStv",
       "3": "Startimes",
-      "4": "Showmax"
+      "4": "Showmax",
     };
     return maps[val] || "Cable";
   };
@@ -149,12 +154,16 @@ export default function PricingsPage() {
           variant="ghost"
           size="icon"
           className={`rounded-full h-10 w-10 ${
-            isDarkMode ? "bg-zinc-900/50 text-white" : "bg-white shadow-sm border border-slate-100"
+            isDarkMode
+              ? "bg-zinc-900/50 text-white"
+              : "bg-white shadow-sm border border-slate-100"
           }`}
         >
           <ChevronLeft size={24} />
         </Button>
-        <h2 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40">Price Index</h2>
+        <h2 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40">
+          Price Index
+        </h2>
         <div className="h-10 w-10" />
       </header>
 
@@ -164,13 +173,20 @@ export default function PricingsPage() {
           <span className="text-emerald-500">Connections.</span>
         </h1>
         <p className="text-sm font-medium opacity-60">
-          Last Updated: Today, {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          Last Updated: Today,{" "}
+          {new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
         </p>
       </div>
 
       <div className="px-5 mb-8">
         <div className="relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 opacity-30" size={18} />
+          <Search
+            className="absolute left-4 top-1/2 -translate-y-1/2 opacity-30"
+            size={18}
+          />
           <Input
             placeholder="Search network, plan or provider..."
             value={searchQuery}
@@ -184,49 +200,126 @@ export default function PricingsPage() {
 
       <div className="px-5">
         <Tabs defaultValue="data" className="w-full">
-          <TabsList className={`grid grid-cols-4 h-16 rounded-[2rem] p-1.5 mb-8 ${isDarkMode ? "bg-white/5" : "bg-slate-200/50"}`}>
-            <TabsTrigger value="data" className="rounded-[1.5rem] data-[state=active]:bg-emerald-500 data-[state=active]:text-white"><Wifi size={18} /></TabsTrigger>
-            <TabsTrigger value="airtime" className="rounded-[1.5rem] data-[state=active]:bg-emerald-500 data-[state=active]:text-white"><Phone size={18} /></TabsTrigger>
-            <TabsTrigger value="cable" className="rounded-[1.5rem] data-[state=active]:bg-emerald-500 data-[state=active]:text-white"><Tv size={18} /></TabsTrigger>
-            <TabsTrigger value="utility" className="rounded-[1.5rem] data-[state=active]:bg-emerald-500 data-[state=active]:text-white"><Zap size={18} /></TabsTrigger>
+          <TabsList
+            className={`grid grid-cols-4 h-16 rounded-[2rem] p-1.5 mb-8 ${
+              isDarkMode ? "bg-white/5" : "bg-slate-200/50"
+            }`}
+          >
+            <TabsTrigger
+              value="data"
+              className="rounded-[1.5rem] data-[state=active]:bg-emerald-500 data-[state=active]:text-white"
+            >
+              <Wifi size={18} />
+            </TabsTrigger>
+            <TabsTrigger
+              value="airtime"
+              className="rounded-[1.5rem] data-[state=active]:bg-emerald-500 data-[state=active]:text-white"
+            >
+              <Phone size={18} />
+            </TabsTrigger>
+            <TabsTrigger
+              value="cable"
+              className="rounded-[1.5rem] data-[state=active]:bg-emerald-500 data-[state=active]:text-white"
+            >
+              <Tv size={18} />
+            </TabsTrigger>
+            <TabsTrigger
+              value="utility"
+              className="rounded-[1.5rem] data-[state=active]:bg-emerald-500 data-[state=active]:text-white"
+            >
+              <Zap size={18} />
+            </TabsTrigger>
           </TabsList>
 
           {isLoading ? (
-            <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-emerald-500" size={32} /></div>
+            <div className="py-20 flex justify-center">
+              <Loader2 className="animate-spin text-emerald-500" size={32} />
+            </div>
           ) : (
             [
-              { id: "data", data: pricingData.data, headers: ["Network", "Plan", "Price"] },
-              { id: "airtime", data: pricingData.airtime, headers: ["Network", "Discount", "Status"] },
-              { id: "cable", data: pricingData.cable, headers: ["cableprovider", "name", "userprice"] },
-              { id: "utility", data: pricingData.electricity, headers: ["Disco", "Type", "Min"] },
+              {
+                id: "data",
+                data: pricingData.data,
+                headers: ["Network", "Plan", "Price"],
+              },
+              {
+                id: "airtime",
+                data: pricingData.airtime,
+                headers: ["Network", "Discount", "Status"],
+              },
+              {
+                id: "cable",
+                data: pricingData.cable,
+                headers: ["cableprovider", "name", "userprice"],
+              },
+              {
+                id: "utility",
+                data: pricingData.electricity,
+                headers: ["Disco", "Type", "Min"],
+              },
             ].map((tab) => (
-              <TabsContent key={tab.id} value={tab.id} className="mt-0 outline-none">
-                <div className={`rounded-[2.5rem] overflow-hidden border ${isDarkMode ? "bg-[#1c1425] border-white/5" : "bg-white border-slate-100 shadow-xl"}`}>
+              <TabsContent
+                key={tab.id}
+                value={tab.id}
+                className="mt-0 outline-none"
+              >
+                <div
+                  className={`rounded-[2.5rem] overflow-hidden border ${
+                    isDarkMode
+                      ? "bg-[#1c1425] border-white/5"
+                      : "bg-white border-slate-100 shadow-xl"
+                  }`}
+                >
                   <Table>
-                    <TableHeader className={isDarkMode ? "bg-white/5" : "bg-slate-50/50"}>
+                    <TableHeader
+                      className={isDarkMode ? "bg-white/5" : "bg-slate-50/50"}
+                    >
                       <TableRow className="border-none">
-                        <TableHead className="font-black text-[9px] uppercase tracking-widest px-6 h-12">{tab.headers[0]}</TableHead>
-                        <TableHead className="font-black text-[9px] uppercase tracking-widest h-12">{tab.headers[1]}</TableHead>
-                        <TableHead className="font-black text-[9px] uppercase tracking-widest text-right px-6 h-12">{tab.headers[2]}</TableHead>
+                        <TableHead className="font-black text-[9px] uppercase tracking-widest px-6 h-12">
+                          {tab.headers[0]}
+                        </TableHead>
+                        <TableHead className="font-black text-[9px] uppercase tracking-widest h-12">
+                          {tab.headers[1]}
+                        </TableHead>
+                        <TableHead className="font-black text-[9px] uppercase tracking-widest text-right px-6 h-12">
+                          {tab.headers[2]}
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filterData(tab.data).map((item: any, idx) => (
-                        <TableRow key={idx} className={`${isDarkMode ? "border-white/5" : "border-slate-50"}`}>
+                        <TableRow
+                          key={idx}
+                          className={`${
+                            isDarkMode ? "border-white/5" : "border-slate-50"
+                          }`}
+                        >
                           <TableCell className="px-6 py-4">
-                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg uppercase ${isDarkMode ? "bg-white/5" : "bg-slate-100"}`}>
-                              {tab.id === "data" 
-                                ? getNetworkName(item.datanetwork) 
-                                : tab.id === "cable" 
-                                  ? getCableProvider(item.cableprovider) 
-                                  : (item.network || item.provider || item.disco)}
+                            <span
+                              className={`text-[10px] font-black px-2.5 py-1 rounded-lg uppercase ${
+                                isDarkMode ? "bg-white/5" : "bg-slate-100"
+                              }`}
+                            >
+                              {tab.id === "data"
+                                ? getNetworkName(item.datanetwork)
+                                : tab.id === "cable"
+                                ? getCableProvider(item.cableprovider)
+                                : item.network || item.provider || item.disco}
                             </span>
                           </TableCell>
                           <TableCell className="text-[13px] font-bold tracking-tight">
-                            {item.name || item.plan_name || item.discount || item.type}
+                            {item.name ||
+                              item.plan_name ||
+                              item.discount ||
+                              item.type}
                           </TableCell>
                           <TableCell className="text-right px-6 py-4 font-black text-emerald-500">
-                            {`₦${item.userprice || item.price || item.min || item.status}`}
+                            {`₦${
+                              item.userprice ||
+                              item.price ||
+                              item.min ||
+                              item.status
+                            }`}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -235,7 +328,9 @@ export default function PricingsPage() {
                   {filterData(tab.data).length === 0 && (
                     <div className="py-20 text-center opacity-30 flex flex-col items-center">
                       <ZapOff size={40} className="mb-2" />
-                      <p className="text-xs font-black uppercase tracking-widest">No plans found</p>
+                      <p className="text-xs font-black uppercase tracking-widest">
+                        No plans found
+                      </p>
                     </div>
                   )}
                 </div>
@@ -244,11 +339,22 @@ export default function PricingsPage() {
           )}
         </Tabs>
 
-        <div className={`mt-10 p-6 rounded-[2.5rem] border flex items-center gap-5 ${isDarkMode ? "bg-emerald-500/5 border-emerald-500/10" : "bg-emerald-50 border-emerald-100"}`}>
-          <div className="h-14 w-14 shrink-0 rounded-[1.2rem] bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20"><Info size={24} /></div>
+        <div
+          className={`mt-10 p-6 rounded-[2.5rem] border flex items-center gap-5 ${
+            isDarkMode
+              ? "bg-emerald-500/5 border-emerald-500/10"
+              : "bg-emerald-50 border-emerald-100"
+          }`}
+        >
+          <div className="h-14 w-14 shrink-0 rounded-[1.2rem] bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+            <Info size={24} />
+          </div>
           <div>
             <h4 className="font-black text-sm mb-0.5">Bulk Purchase?</h4>
-            <p className="text-[11px] font-medium opacity-60 leading-relaxed">Resellers enjoy extra discounts. Dashboard settings contain your API keys.</p>
+            <p className="text-[11px] font-medium opacity-60 leading-relaxed">
+              Resellers enjoy extra discounts. Dashboard settings contain your
+              API keys.
+            </p>
           </div>
         </div>
       </div>

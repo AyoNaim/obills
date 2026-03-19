@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 
 const NETWORK_DATA = [
   {
-    id: "6", // Matches '6' in your screenshot for MTN
+    id: "1",
     name: "MTN",
     prefixes: [
       "0803",
@@ -34,7 +34,7 @@ const NETWORK_DATA = [
     color: "bg-green-500",
   },
   {
-    id: "1",
+    id: "4",
     name: "AIRTEL",
     prefixes: [
       "0802",
@@ -193,6 +193,9 @@ export default function BuyDataPage() {
   const currentPlans = allPlans.filter(
     (plan) => String(plan.datanetwork) === selectedNetwork.id
   );
+
+  console.log("the current plans are: ", currentPlans);
+  console.log("the current selected id is: ", selectedNetwork.id);
 
   return (
     <div
