@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Plus,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -51,10 +52,11 @@ export default function FundAccountPage() {
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
+  // Updated manual data state to match database requirements
   const [manualData, setManualData] = useState({
-    accountNumber: "",
-    accountName: "",
-    bank: "",
+    senderBank: "",
+    senderName: "",
+    amount: "",
   });
 
   const fetchData = useCallback(async () => {
@@ -75,7 +77,6 @@ export default function FundAccountPage() {
       });
       const result = await response.json();
 
-      // FIXED: Backend returns 'accounts' as an array
       if (result.status === "success" && Array.isArray(result.accounts)) {
         setVirtualAccounts(result.accounts);
       } else {
@@ -83,7 +84,6 @@ export default function FundAccountPage() {
       }
     } catch (error) {
       console.error("Failed to load accounts:", error);
-      toast.error("Could not load account details");
     }
   }, []);
 
@@ -117,68 +117,96 @@ export default function FundAccountPage() {
   const handleGenerateAccount = async () => {
     const token = localStorage.getItem("userToken");
     if (!token) return;
-
     setIsGenerating(true);
     await Haptics.impact({ style: ImpactStyle.Heavy });
 
     try {
-      const response = await fetch(API_BASE_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ action: "generate" }),
-      });
+      const response = await fetch(
+        `https://obills.com.ng/app/debug_aspfiy.php?token=${encodeURIComponent(
+          token
+        )}`,
+        {
+          method: "POST",
+        }
+      );
       const result = await response.json();
-
       if (result.status === "success") {
-        toast.success(result.msg || "Account created successfully");
-        await fetchData(); // Refresh list to show the new account
+        toast.success("Account created successfully!");
+        await fetchData();
       } else {
         toast.error(result.msg || "Generation failed");
-        // If it already exists, refresh anyway to show it
-        if (result.msg?.includes("exists")) {
-          fetchData();
-        }
+        if (result.msg?.toLowerCase().includes("exist")) fetchData();
       }
     } catch (error) {
-      toast.error("Network error. Try again.");
+      toast.error("Network error.");
     } finally {
       setIsGenerating(false);
     }
   };
 
   const submitManualVerification = async () => {
-    if (!manualData.accountNumber || !manualData.accountName) {
-      toast.error("Please fill all fields");
+    // 1. Validation check
+    if (
+      !manualData.senderBank ||
+      !manualData.senderName ||
+      !manualData.amount
+    ) {
+      toast.error("Required fields are missing");
       return;
     }
 
     const token = localStorage.getItem("userToken");
-
     setIsSubmittingManual(true);
+
     try {
-      const response = await fetch(API_BASE_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ action: "manual_fund", ...manualData }),
-      });
+      // 2. Initial Haptic feedback for interaction
+      await Haptics.impact({ style: ImpactStyle.Medium });
+
+      const response = await fetch(
+        "https://obills.com.ng/app/api/fund-wallet/manual/index.php",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            action: "manual_fund",
+            account: `${manualData.senderName} (${manualData.senderBank})`,
+            amount: manualData.amount,
+          }),
+        }
+      );
+
+      // 3. Check for HTTP errors (404, 500, etc) before parsing JSON
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Server error raw:", errorText);
+        throw new Error("Server responded with an error");
+      }
+
       const result = await response.json();
 
+      // 4. Handle logical success/failure from PHP
       if (result.status === "success") {
         await Haptics.notification({ type: NotificationType.Success });
-        toast.success(result.msg);
+
+        // Show success message immediately
+        toast.success(result.msg || "Proof submitted successfully!");
+
+        // Reset and close modals
         setShowVerifyModal(false);
         setShowManualModal(false);
+        setManualData({ senderBank: "", senderName: "", amount: "" });
       } else {
+        // This catches the ["status" => "fail"] from your PHP
         toast.error(result.msg || "Submission failed");
+        await Haptics.notification({ type: NotificationType.Error });
       }
     } catch (error) {
-      toast.error("Network error");
+      console.error("Manual Funding Error:", error);
+      toast.error("Connection error. Please try again.");
+      await Haptics.notification({ type: NotificationType.Error });
     } finally {
       setIsSubmittingManual(false);
     }
@@ -186,20 +214,17 @@ export default function FundAccountPage() {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-500 w-full px-5 pt-safe pb-10 font-sans overflow-x-hidden ${
+      className={`min-h-screen w-full px-5 pt-safe pb-10 font-sans overflow-x-hidden ${
         isDarkMode ? "bg-[#0f0a14] text-white" : "bg-slate-50 text-slate-900"
       }`}
     >
-      {/* Header */}
       <header className="flex justify-between items-center py-6">
         <Button
           onClick={() => router.back()}
           variant="ghost"
           size="icon"
           className={`rounded-full h-9 w-9 ${
-            isDarkMode
-              ? "bg-zinc-900 text-white"
-              : "bg-white shadow-sm text-slate-600"
+            isDarkMode ? "bg-zinc-900 text-white" : "bg-white shadow-sm"
           }`}
         >
           <ChevronLeft size={20} />
@@ -209,22 +234,19 @@ export default function FundAccountPage() {
           variant="ghost"
           size="icon"
           className={`rounded-full h-9 w-9 ${
-            isDarkMode
-              ? "bg-zinc-900 text-white"
-              : "bg-white shadow-sm text-slate-600"
+            isDarkMode ? "bg-zinc-900 text-white" : "bg-white shadow-sm"
           }`}
         >
           <History size={18} />
         </Button>
       </header>
 
-      {/* Balance Card */}
       <Card
-        className={`border-none rounded-[2rem] overflow-hidden mb-8 shadow-2xl transition-all duration-500 ${
-          isDarkMode ? "bg-[#1c1425]" : "bg-white border border-slate-100"
+        className={`border-none rounded-[2rem] overflow-hidden mb-8 shadow-2xl ${
+          isDarkMode ? "bg-[#1c1425]" : "bg-white"
         }`}
       >
-        <CardContent className="p-8 flex flex-col items-center justify-center relative overflow-hidden">
+        <CardContent className="p-8 flex flex-col items-center justify-center relative">
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[50px] rounded-full" />
           <div className="flex items-center gap-2 mb-1 z-10">
             <p
@@ -255,7 +277,6 @@ export default function FundAccountPage() {
         </CardContent>
       </Card>
 
-      {/* Methods */}
       <div className="space-y-3">
         <p
           className={`text-[10px] font-bold uppercase tracking-widest ml-1 mb-1 ${
@@ -290,7 +311,7 @@ export default function FundAccountPage() {
       {/* VIRTUAL ACCOUNT MODAL */}
       <Dialog open={showBankModal} onOpenChange={setShowBankModal}>
         <DialogContent
-          className={`border-none p-0 overflow-hidden fixed bottom-0 top-auto translate-y-0 translate-x-[-50%] rounded-t-[2.5rem] w-full max-w-full sm:max-w-[420px] ${
+          className={`border-none p-0 fixed bottom-0 top-auto translate-y-0 translate-x-[-50%] rounded-t-[2.5rem] w-full max-w-[420px] ${
             isDarkMode ? "bg-zinc-950 text-white" : "bg-white text-slate-900"
           }`}
         >
@@ -304,11 +325,10 @@ export default function FundAccountPage() {
               Automated Funding
             </DialogTitle>
           </DialogHeader>
-
           <div className="px-6 pb-10 space-y-5">
             {virtualAccounts.length === 0 ? (
               <div
-                className={`p-8 rounded-[2rem] border-2 border-dashed flex flex-col items-center justify-center text-center space-y-4 ${
+                className={`p-8 rounded-[2rem] border-2 border-dashed flex flex-col items-center text-center space-y-4 ${
                   isDarkMode
                     ? "border-zinc-800 bg-zinc-900/30"
                     : "border-slate-200 bg-slate-50"
@@ -327,7 +347,7 @@ export default function FundAccountPage() {
                 <Button
                   onClick={handleGenerateAccount}
                   disabled={isGenerating}
-                  className="w-full h-12 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                  className="w-full h-12 rounded-full bg-blue-600 text-white font-bold"
                 >
                   {isGenerating ? (
                     <Loader2 className="animate-spin mr-2" />
@@ -341,7 +361,7 @@ export default function FundAccountPage() {
                 {virtualAccounts.map((acc, i) => (
                   <div
                     key={i}
-                    className={`p-5 rounded-[2rem] border relative overflow-hidden ${
+                    className={`p-5 rounded-[2rem] border relative ${
                       isDarkMode
                         ? "bg-zinc-900/50 border-zinc-800"
                         : "bg-slate-50 border-slate-100"
@@ -380,25 +400,181 @@ export default function FundAccountPage() {
                     </p>
                   </div>
                 ))}
-                <div
-                  className={`p-4 rounded-2xl border ${
-                    isDarkMode
-                      ? "bg-blue-500/5 border-blue-500/10"
-                      : "bg-blue-50 border-blue-100"
-                  }`}
-                >
-                  <p className="text-[10px] text-center font-medium text-zinc-500">
-                    Automated funding attracts a{" "}
-                    <span className="text-blue-500 font-bold">₦50 charge</span>.
-                  </p>
-                </div>
               </div>
             )}
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* (Manual & Verification Dialogs remain same as your original code) */}
+      {/* MANUAL FUNDING MODAL */}
+      <Dialog open={showManualModal} onOpenChange={setShowManualModal}>
+        <DialogContent
+          className={`border-none p-0 fixed bottom-0 top-auto translate-y-0 translate-x-[-50%] rounded-t-[2.5rem] w-full max-w-[420px] ${
+            isDarkMode ? "bg-zinc-950 text-white" : "bg-white text-slate-900"
+          }`}
+        >
+          <div
+            className={`w-12 h-1.5 rounded-full mx-auto mt-4 mb-2 ${
+              isDarkMode ? "bg-zinc-800" : "bg-slate-200"
+            }`}
+          />
+          <DialogHeader className="px-6 py-4">
+            <DialogTitle className="text-left text-xl font-black">
+              Manual Funding
+            </DialogTitle>
+          </DialogHeader>
+          <div className="px-6 pb-10 space-y-6">
+            <div
+              className={`p-6 rounded-[2rem] border ${
+                isDarkMode
+                  ? "bg-zinc-900/40 border-zinc-800"
+                  : "bg-slate-50 border-slate-100"
+              }`}
+            >
+              <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-3">
+                Admin Account Details
+              </p>
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <p className="text-xs text-zinc-500">Bank Name</p>
+                  <h4 className="font-bold">PalmPay</h4>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-zinc-500">Account Name</p>
+                  <h4 className="font-bold">ThankGod Osolo</h4>
+                </div>
+              </div>
+              <div
+                className={`flex items-center justify-between p-4 rounded-2xl ${
+                  isDarkMode ? "bg-zinc-950" : "bg-white border"
+                }`}
+              >
+                <div>
+                  <p className="text-[10px] text-zinc-500 uppercase font-bold">
+                    Account Number
+                  </p>
+                  <p className="text-lg font-black tracking-wider">
+                    8035917659
+                  </p>
+                </div>
+                <Button
+                  onClick={() => copyToClipboard("9012345678", "admin_acc")}
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-500"
+                >
+                  {copiedField === "admin_acc" ? (
+                    <CheckCircle2 size={18} />
+                  ) : (
+                    <Copy size={18} />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div
+              className={`flex gap-3 p-4 rounded-2xl ${
+                isDarkMode
+                  ? "bg-amber-500/5 text-amber-500/80"
+                  : "bg-amber-50 text-amber-700"
+              }`}
+            >
+              <AlertCircle size={18} className="shrink-0" />
+              <p className="text-[11px] leading-relaxed font-medium">
+                Please ensure you transfer the exact amount and provide proof
+                details correctly to avoid delays.
+              </p>
+            </div>
+
+            <Button
+              onClick={() => setShowVerifyModal(true)}
+              className="w-full h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base shadow-lg shadow-emerald-900/20"
+            >
+              I have made the transfer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* VERIFICATION FORM MODAL */}
+      <Dialog open={showVerifyModal} onOpenChange={setShowVerifyModal}>
+        <DialogContent
+          className={`border-none p-0 fixed bottom-0 top-auto translate-y-0 translate-x-[-50%] rounded-t-[2.5rem] w-full max-w-[420px] ${
+            isDarkMode ? "bg-zinc-900 text-white" : "bg-white text-slate-900"
+          }`}
+        >
+          <div
+            className={`w-12 h-1.5 rounded-full mx-auto mt-4 mb-2 ${
+              isDarkMode ? "bg-zinc-800" : "bg-slate-200"
+            }`}
+          />
+          <DialogHeader className="px-6 py-4">
+            <DialogTitle className="text-left text-xl font-black">
+              Submit Payment Proof
+            </DialogTitle>
+          </DialogHeader>
+          <div className="px-6 pb-10 space-y-4">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold uppercase ml-1 text-zinc-500">
+                Sender Bank Name
+              </Label>
+              <Input
+                placeholder="e.g. GTBank, Kuda"
+                value={manualData.senderBank}
+                onChange={(e) =>
+                  setManualData({ ...manualData, senderBank: e.target.value })
+                }
+                className={`h-12 rounded-2xl border-none ${
+                  isDarkMode ? "bg-zinc-800" : "bg-slate-100"
+                }`}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold uppercase ml-1 text-zinc-500">
+                Your Account Name
+              </Label>
+              <Input
+                placeholder="The name on your transfer receipt"
+                value={manualData.senderName}
+                onChange={(e) =>
+                  setManualData({ ...manualData, senderName: e.target.value })
+                }
+                className={`h-12 rounded-2xl border-none ${
+                  isDarkMode ? "bg-zinc-800" : "bg-slate-100"
+                }`}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold uppercase ml-1 text-zinc-500">
+                Amount Sent (₦)
+              </Label>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={manualData.amount}
+                onChange={(e) =>
+                  setManualData({ ...manualData, amount: e.target.value })
+                }
+                className={`h-12 rounded-2xl border-none ${
+                  isDarkMode ? "bg-zinc-800" : "bg-slate-100"
+                }`}
+              />
+            </div>
+
+            <Button
+              onClick={submitManualVerification}
+              disabled={isSubmittingManual}
+              className="w-full h-14 mt-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold"
+            >
+              {isSubmittingManual ? (
+                <Loader2 className="animate-spin mr-2" />
+              ) : (
+                "Submit for Verification"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -410,11 +586,11 @@ function FundingMethod({ title, desc, icon, onClick, isDark }: any) {
       className={`flex items-center gap-4 p-4 border rounded-[1.8rem] cursor-pointer active:scale-[0.96] transition-all group ${
         isDark
           ? "bg-[#1c1425]/40 border-white/5 hover:bg-zinc-900/60"
-          : "bg-white border-slate-100 shadow-sm hover:border-slate-200"
+          : "bg-white border-slate-100 shadow-sm"
       }`}
     >
       <div
-        className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform ${
+        className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
           isDark ? "bg-zinc-900" : "bg-slate-50"
         }`}
       >
@@ -429,7 +605,7 @@ function FundingMethod({ title, desc, icon, onClick, isDark }: any) {
           {title}
         </h3>
         <p
-          className={`text-[11px] mt-0.5 leading-tight font-medium ${
+          className={`text-[11px] mt-0.5 font-medium ${
             isDark ? "text-zinc-500" : "text-slate-400"
           }`}
         >
@@ -437,11 +613,7 @@ function FundingMethod({ title, desc, icon, onClick, isDark }: any) {
         </p>
       </div>
       <ChevronLeft
-        className={`rotate-180 transition-colors ${
-          isDark
-            ? "text-zinc-800 group-hover:text-zinc-600"
-            : "text-slate-200 group-hover:text-slate-400"
-        }`}
+        className="rotate-180 text-zinc-800 group-hover:text-zinc-600"
         size={18}
       />
     </div>
