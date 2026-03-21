@@ -122,7 +122,7 @@ export default function FundAccountPage() {
 
     try {
       const response = await fetch(
-        `https://obills.com.ng/app/debug_aspfiy.php?token=${encodeURIComponent(
+        `https://obills.com.ng/app/debug.php?token=${encodeURIComponent(
           token
         )}`,
         {

@@ -9,7 +9,7 @@ import Link from "next/link";
 
 export default function ForgotPasswordEmail() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("olatunjinaheem012@gmail.com");
   const [showModal, setShowModal] = useState(false);
   const [otp, setOtp] = useState(["", "", "", "", ""]); // 5-digit OTP
   const [timer, setTimer] = useState(60);
@@ -34,14 +34,17 @@ export default function ForgotPasswordEmail() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/forgot-password/index.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "request",
-          email: email,
-        }),
-      });
+      const response = await fetch(
+        "https://obills.com.ng/app/api/user/forgot-password/index.php",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "request",
+            email: email,
+          }),
+        }
+      );
 
       const data = await response.json();
 
@@ -66,15 +69,18 @@ export default function ForgotPasswordEmail() {
     setVerifying(true);
 
     try {
-      const response = await fetch("/api/forgot-password/index.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "verify",
-          email: email,
-          otp: fullOtp,
-        }),
-      });
+      const response = await fetch(
+        "https://obills.com.ng/app/api/user/forgot-password/index.php",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "verify",
+            email: email,
+            otp: fullOtp,
+          }),
+        }
+      );
 
       const data = await response.json();
 

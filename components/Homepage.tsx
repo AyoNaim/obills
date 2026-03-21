@@ -506,7 +506,7 @@ export default function FintechDashboard() {
             try {
               await Haptics.impact({ style: ImpactStyle.Medium });
             } catch (e) {}
-            const adminPhone = "2349032139771";
+            const adminPhone = "2347081671426";
             window.open(
               `https://wa.me/${adminPhone}?text=hey there, i want to exchange my airtime for cash`,
               "_blank"
@@ -543,7 +543,7 @@ export default function FintechDashboard() {
               await Haptics.impact({ style: ImpactStyle.Medium });
             } catch (e) {}
             window.open(
-              `https://wa.me/2349032139771?text=${encodeURIComponent(
+              `https://wa.me/2347081671426?text=${encodeURIComponent(
                 "Hello, I am using the Obills App. I would like to suggest a new service: "
               )}`,
               "_blank"
@@ -576,7 +576,7 @@ export default function FintechDashboard() {
             } catch (e) {}
             const userName = userData.displayName || "User";
             window.open(
-              `https://wa.me/2349032139771?text=${encodeURIComponent(
+              `https://wa.me/2347081671426?text=${encodeURIComponent(
                 `Hello Admin, I am ${userName}. I need assistance with the Obills App.`
               )}`,
               "_blank"

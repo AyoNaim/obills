@@ -61,6 +61,7 @@ export default function BuyAirtimePage() {
   };
 
   const handlePurchase = async () => {
+    // 1. Basic Validations
     if (phoneNumber.length < 10) {
       setMessage({ type: "error", text: "Please enter a valid phone number" });
       return;
@@ -75,39 +76,38 @@ export default function BuyAirtimePage() {
     await Haptics.impact({ style: ImpactStyle.Heavy });
 
     try {
+      // 2. Session & Token Retrieval
       const rawData = localStorage.getItem("user_session");
-      if (!rawData) throw new Error("No session found");
+      const userToken = localStorage.getItem("userToken"); // Ensure this is stored during login
+
+      if (!rawData || !userToken) {
+        throw new Error("Session expired. Please log in again.");
+      }
 
       const session = JSON.parse(rawData);
-
-      // Robust token retrieval
-      const userToken =
-        session.token ||
-        session.user_data?.token ||
-        localStorage.getItem("userToken") ||
-        "";
-
       const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
 
-      // Use URLSearchParams for application/x-www-form-urlencoded compatibility
-      const formData = new URLSearchParams();
-      formData.append("phone", phoneNumber);
-      formData.append("amount", amount);
-      formData.append("network", selectedNetwork.id);
-      formData.append("token", userToken);
-      formData.append("airtime_type", "VTU");
-      formData.append("ref", `AIR_${Date.now()}`);
+      // 3. Prepare JSON Payload
+      const payload = {
+        phone: phoneNumber,
+        amount: amount,
+        network: selectedNetwork.id,
+        token: userToken,
+        airtime_type: "VTU",
+        ref: `AIR_${Date.now()}`,
+      };
 
+      // 4. Send Request as JSON
       const response = await fetch(
         "https://obills.com.ng/app/api/airtime/index.php",
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Type": "application/json",
             Authorization: `Token ${userToken}`,
             "X-Handshake": today,
           },
-          body: formData.toString(),
+          body: JSON.stringify(payload),
         }
       );
 
@@ -119,12 +119,13 @@ export default function BuyAirtimePage() {
       } catch (e) {
         console.error("Raw Server Error:", textResponse);
         throw new Error(
-          "Server returned an invalid response. Please check logs."
+          "Server returned an invalid response. Check console logs."
         );
       }
 
+      // 5. Handle Result
       if (result.status === "success") {
-        // Corrected key to match backend: new_balance
+        // Update local state and balance
         const finalBalance =
           result.new_balance ||
           (parseFloat(balance) - parseFloat(amount)).toFixed(2);
@@ -140,7 +141,11 @@ export default function BuyAirtimePage() {
         setAmount("");
         await Haptics.notification({ type: NotificationType.Success });
       } else {
-        setMessage({ type: "error", text: result.msg || "Transaction failed" });
+        // Robust error message from your new backend "Debug" mode
+        setMessage({
+          type: "error",
+          text: result.msg || result.debug_log || "Transaction failed",
+        });
         await Haptics.notification({ type: NotificationType.Error });
       }
     } catch (err: any) {

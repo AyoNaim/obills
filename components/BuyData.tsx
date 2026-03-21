@@ -63,7 +63,7 @@ const NETWORK_DATA = [
 export default function BuyDataPage() {
   const router = useRouter();
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("09032139771");
   const [balance, setBalance] = useState("0.00");
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingPlans, setIsFetchingPlans] = useState(true);
@@ -134,6 +134,8 @@ export default function BuyDataPage() {
 
   const handlePurchase = async (e: React.MouseEvent, plan: any) => {
     e.stopPropagation();
+
+    // Basic validation
     if (phoneNumber.length < 11) {
       setMessage({ type: "error", text: "Enter valid 11-digit phone number" });
       return;
@@ -144,10 +146,16 @@ export default function BuyDataPage() {
     await Haptics.impact({ style: ImpactStyle.Heavy });
 
     try {
-      const raw = localStorage.getItem("user_session");
-      if (!raw) throw new Error("No session found");
-      const session = JSON.parse(raw);
       const authToken = getHandshake();
+
+      // Construct the payload exactly as requested
+      const payload = {
+        network: String(selectedNetwork.id), // Ensure it's a string "1"
+        phone: phoneNumber, // "09032139771"
+        ref: `DATA_${Date.now()}`, // "DATA_1774159751553"
+        amount: String(plan.userprice), // "230"
+        plan: String(plan.planid), // Fallback check for the Plan ID
+      };
 
       const response = await fetch(
         "https://obills.com.ng/app/api/data/index.php",
@@ -157,18 +165,14 @@ export default function BuyDataPage() {
             "Content-Type": "application/json",
             Authorization: authToken,
           },
-          body: JSON.stringify({
-            network: selectedNetwork.id,
-            phone: phoneNumber,
-            plan: plan.pld, // Using 'pld' from your database screenshot
-            ref: `DATA_${Date.now()}`,
-          }),
+          body: JSON.stringify(payload),
         }
       );
 
       const result = await response.json();
 
       if (result.status === "success" || result.status === "successful") {
+        // Logic for success
         const updatedBalance = (
           parseFloat(balance) - parseFloat(plan.userprice)
         ).toFixed(2);
@@ -311,7 +315,7 @@ export default function BuyDataPage() {
         ) : currentPlans.length > 0 ? (
           currentPlans.map((plan) => (
             <div
-              key={`${plan.pld} + ${Math.random()}`}
+              key={plan.pId}
               onClick={(e) => !isLoading && handlePurchase(e, plan)}
               className={`group rounded-[2rem] p-5 flex justify-between items-center border transition-all cursor-pointer active:scale-95 duration-300 ${
                 isDarkMode
