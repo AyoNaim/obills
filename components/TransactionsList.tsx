@@ -1,15 +1,17 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import {
-  ArrowUpRight,
-  ArrowDownLeft,
   Smartphone,
   Gift,
   Percent,
-  Download,
-  ChevronDown,
   Inbox,
+  Zap,
+  Tv,
+  Wifi,
+  ChevronRight,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import TransactionReceipt from "./Receipt";
 
 interface Transaction {
   transref: string;
@@ -25,8 +27,13 @@ interface Transaction {
 const TransactionPage = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
   useEffect(() => {
+    // Load Theme
+    const savedTheme = localStorage.getItem("app_theme");
+    setIsDarkMode(savedTheme !== "light");
+
     const loadTransactions = async () => {
       try {
         const token = localStorage.getItem("userToken");
@@ -34,7 +41,6 @@ const TransactionPage = () => {
           "https://obills.com.ng/app/api/transactions/index.php",
           {
             method: "GET",
-            credentials: "include",
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
@@ -54,122 +60,155 @@ const TransactionPage = () => {
     loadTransactions();
   }, []);
 
-  // Calculate Summary (Simplified for this example)
-  const totalIn = transactions.reduce(
-    (acc, curr) =>
-      parseFloat(curr.amount) > 0 && curr.status === "0"
-        ? acc + parseFloat(curr.amount)
-        : acc,
-    0
-  );
-
-  const totalOut = transactions.reduce(
-    (acc, curr) =>
-      parseFloat(curr.amount) < 0
-        ? acc + Math.abs(parseFloat(curr.amount))
-        : acc,
-    0
-  );
-
-  // Helper to determine icons based on service name
-  const getIcon = (service: string) => {
+  // Map backend types to Receipt component types
+  const mapType = (
+    service: string
+  ): "airtime" | "data" | "cable" | "electricity" => {
     const s = service.toLowerCase();
-    if (s.includes("airtime") || s.includes("data"))
-      return <Smartphone className="text-blue-500" size={20} />;
-    if (s.includes("bonus"))
-      return <Gift className="text-emerald-500" size={20} />;
-    if (s.includes("interest"))
-      return <Percent className="text-purple-500" size={20} />;
-    return <ArrowUpRight className="text-emerald-500" size={20} />;
+    if (s.includes("data")) return "data";
+    if (
+      s.includes("tv") ||
+      s.includes("cable") ||
+      s.includes("dstv") ||
+      s.includes("gotv")
+    )
+      return "cable";
+    if (s.includes("electric") || s.includes("power")) return "electricity";
+    return "airtime";
   };
 
-  if (loading)
-    return <div className="p-10 text-center">Loading Transactions...</div>;
+  const getIcon = (service: string) => {
+    const s = service.toLowerCase();
+    if (s.includes("data")) return <Wifi className="text-blue-500" size={18} />;
+    if (s.includes("tv") || s.includes("cable"))
+      return <Tv className="text-orange-500" size={18} />;
+    if (s.includes("electric"))
+      return <Zap className="text-yellow-500" size={18} />;
+    if (s.includes("bonus") || s.includes("interest"))
+      return <Gift className="text-emerald-500" size={18} />;
+    return <Smartphone className="text-zinc-400" size={18} />;
+  };
+
+  if (loading) {
+    return (
+      <div
+        className={`min-h-screen flex items-center justify-center ${
+          isDarkMode ? "bg-[#0f0a14] text-white" : "bg-slate-50 text-slate-900"
+        }`}
+      >
+        <div className="animate-pulse font-black tracking-widest uppercase text-xs">
+          Loading History...
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-md mx-auto bg-gray-50 min-h-screen font-sans">
-      {/* Header */}
-      <div className="flex justify-between items-center p-4 bg-white">
-        <h1 className="text-lg font-semibold text-gray-700">Transactions</h1>
-        <button className="text-emerald-600 font-medium flex items-center gap-1">
-          <Download size={18} /> Download
-        </button>
-      </div>
+    <div
+      className={`min-h-screen font-sans pb-20 transition-colors duration-500 ${
+        isDarkMode ? "bg-[#0f0a14] text-white" : "bg-slate-50 text-slate-900"
+      }`}
+    >
+      {/* Fancy Gradient Heading */}
+      <header className="px-6 pt-10 pb-6">
+        <h1 className="text-4xl font-black tracking-tighter bg-gradient-to-br from-white via-white to-zinc-600 bg-clip-text text-transparent">
+          Activity
+        </h1>
+        <p
+          className={`text-[10px] font-bold uppercase tracking-[0.3em] mt-2 ${
+            isDarkMode ? "text-zinc-500" : "text-slate-400"
+          }`}
+        >
+          Your Transaction History
+        </p>
+      </header>
 
-      {/* Filters */}
-      <div className="flex gap-3 p-4">
-        <button className="flex-1 flex justify-between items-center bg-white border border-gray-100 rounded-lg px-4 py-2 text-sm text-gray-500">
-          All Categories <ChevronDown size={16} />
-        </button>
-        <button className="flex-1 flex justify-between items-center bg-white border border-gray-100 rounded-lg px-4 py-2 text-sm text-gray-500">
-          All Status <ChevronDown size={16} />
-        </button>
-      </div>
-
-      {/* Summary Card */}
-      <div className="mx-4 p-4 bg-white rounded-2xl shadow-sm mb-6">
-        <div className="flex justify-between items-center mb-2">
-          <button className="flex items-center gap-1 font-bold text-gray-800">
-            Mar 2026 <ChevronDown size={18} />
-          </button>
-          <span className="bg-emerald-500 text-white text-xs px-3 py-1 rounded-full">
-            Analysis
-          </span>
-        </div>
-        <div className="flex gap-4 text-sm">
-          <span className="text-gray-500">
-            In: <b className="text-gray-800">₦{totalIn.toLocaleString()}</b>
-          </span>
-          <span className="text-gray-500">
-            Out: <b className="text-gray-800">₦{totalOut.toLocaleString()}</b>
-          </span>
-        </div>
-      </div>
-
-      {/* List */}
-      <div className="space-y-1">
+      <div className="px-4 space-y-2">
         {transactions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-            <Inbox size={48} strokeWidth={1} />
-            <p className="mt-2">No transactions found</p>
+          <div className="flex flex-col items-center justify-center py-32 opacity-20">
+            <Inbox size={64} strokeWidth={1} />
+            <p className="mt-4 font-bold uppercase tracking-widest text-[10px]">
+              Empty Space
+            </p>
           </div>
         ) : (
-          transactions.map((tx, idx) => {
-            const isNegative = parseFloat(tx.amount) < 0;
-            return (
-              <div
-                key={idx}
-                className="flex items-center gap-4 bg-white p-4 hover:bg-gray-50 transition-colors"
-              >
-                <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center">
-                  {isNegative ? (
-                    <ArrowDownLeft className="text-gray-400" size={20} />
-                  ) : (
-                    getIcon(tx.servicename)
-                  )}
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-medium text-gray-800 truncate w-40">
-                    {tx.servicedesc}
-                  </h3>
-                  <p className="text-xs text-gray-400 mt-1">{tx.date}</p>
-                </div>
-                <div className="text-right">
-                  <p
-                    className={`font-bold ${
-                      isNegative ? "text-gray-900" : "text-emerald-500"
+          transactions.map((tx) => (
+            <Dialog key={tx.transref}>
+              <DialogTrigger asChild>
+                <div
+                  className={`flex items-center gap-4 p-4 rounded-[1.5rem] cursor-pointer active:scale-[0.98] transition-all border ${
+                    isDarkMode
+                      ? "bg-[#1c1425] border-white/5 hover:bg-[#251a31]"
+                      : "bg-white border-slate-100 hover:shadow-md"
+                  }`}
+                >
+                  <div
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                      isDarkMode ? "bg-black/20" : "bg-slate-50"
                     }`}
                   >
-                    {isNegative ? "-" : "+"}₦
-                    {Math.abs(parseFloat(tx.amount)).toFixed(2)}
-                  </p>
-                  <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded uppercase font-bold">
-                    {tx.status === "0" ? "Successful" : "Failed"}
-                  </span>
+                    {getIcon(tx.servicename)}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-black truncate leading-tight">
+                      {tx.servicedesc}
+                    </h3>
+                    <p
+                      className={`text-[10px] font-bold uppercase tracking-wider mt-1 ${
+                        isDarkMode ? "text-zinc-500" : "text-slate-400"
+                      }`}
+                    >
+                      {tx.date.split(" ")[0]}
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <p
+                      className={`text-sm font-black ${
+                        parseFloat(tx.amount) < 0
+                          ? "text-white"
+                          : "text-emerald-500"
+                      }`}
+                    >
+                      {parseFloat(tx.amount) < 0 ? "-" : "+"}₦
+                      {Math.abs(parseFloat(tx.amount)).toLocaleString()}
+                    </p>
+                    <div className="flex items-center justify-end gap-1 mt-1">
+                      <span
+                        className={`text-[8px] font-black uppercase tracking-tighter ${
+                          tx.status === "0"
+                            ? "text-emerald-500"
+                            : "text-red-500"
+                        }`}
+                      >
+                        {tx.status === "0" ? "Success" : "Failed"}
+                      </span>
+                      <ChevronRight size={10} className="opacity-30" />
+                    </div>
+                  </div>
                 </div>
-              </div>
-            );
-          })
+              </DialogTrigger>
+
+              {/* Shadcn Modal Content */}
+              <DialogContent className="max-w-[90vw] sm:max-w-[400px] p-0 border-none bg-transparent shadow-none">
+                <TransactionReceipt
+                  isDark={isDarkMode}
+                  data={{
+                    id: tx.transref,
+                    amount: Math.abs(parseFloat(tx.amount)).toString(),
+                    status: tx.status === "0" ? "success" : "failed",
+                    type: mapType(tx.servicename),
+                    provider: tx.servicename,
+                    recipient: tx.servicedesc.match(/\d+/)?.[0] || "N/A", // Basic regex to find phone/meter number
+                    date: tx.date,
+                    ref: tx.transref,
+                    cashback: undefined, // Add this if your API provides cashback values
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+          ))
         )}
       </div>
     </div>
