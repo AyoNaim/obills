@@ -10,7 +10,12 @@ import {
   Wifi,
   ChevronRight,
 } from "lucide-react";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import TransactionReceipt from "./Receipt";
 
 interface Transaction {
@@ -111,7 +116,7 @@ const TransactionPage = () => {
     >
       {/* Fancy Gradient Heading */}
       <header className="px-6 pt-10 pb-6">
-        <h1 className="text-4xl font-black tracking-tighter bg-gradient-to-br from-white via-white to-zinc-600 bg-clip-text text-transparent">
+        <h1 className="text-4xl font-black tracking-tighter bg-gradient-to-br from-red-400 via-green-400 to-green-600 bg-clip-text text-transparent">
           Activity
         </h1>
         <p
@@ -192,6 +197,7 @@ const TransactionPage = () => {
 
               {/* Shadcn Modal Content */}
               <DialogContent className="max-w-[90vw] sm:max-w-[400px] p-0 border-none bg-transparent shadow-none">
+                <DialogTitle></DialogTitle>
                 <TransactionReceipt
                   isDark={isDarkMode}
                   data={{

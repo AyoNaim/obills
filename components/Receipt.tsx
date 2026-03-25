@@ -1,18 +1,18 @@
 "use client";
-import React, { useRef } from "react";
+import React from "react";
 import {
-  CheckCircle2,
-  Download,
+  X,
   Smartphone,
   Wifi,
   Tv,
   Zap,
   Copy,
-  Share2,
+  AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
-import { usePDF } from "react-to-pdf";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { DialogClose } from "@/components/ui/dialog";
 
 interface ReceiptProps {
   data: {
@@ -33,35 +33,63 @@ export default function TransactionReceipt({
   data,
   isDark = true,
 }: ReceiptProps) {
-  const { toPDF, targetRef } = usePDF({ filename: `Receipt_${data.ref}.pdf` });
+  // Logic to handle colors based on status
+  const isFailed = data.status === "failed";
+  const statusColor = isFailed ? "text-red-500" : "text-emerald-500";
+  const statusBg = isFailed ? "bg-red-500/10" : "bg-emerald-500/10";
 
   const getIcon = () => {
+    const iconSize = 24;
     switch (data.type) {
       case "airtime":
-        return <Smartphone size={24} />;
+        return <Smartphone size={iconSize} />;
       case "data":
-        return <Wifi size={24} />;
+        return <Wifi size={iconSize} />;
       case "cable":
-        return <Tv size={24} />;
+        return <Tv size={iconSize} />;
       default:
-        return <Zap size={24} />;
+        return <Zap size={iconSize} />;
     }
   };
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    // You could trigger a small toast here if desired
+  };
+
   return (
-    <div className="flex flex-col gap-6">
-      {/* Target for PDF Generation */}
+    <div className="relative group">
+      {/* Custom Close Button - Positioned at top right of the modal area */}
+      <div className="absolute -top-12 right-0">
+        <DialogClose asChild>
+          <Button
+            size="icon"
+            className={`rounded-full h-10 w-10 border shadow-xl transition-transform active:scale-90 ${
+              isDark
+                ? "bg-[#1c1425] border-white/10 text-white"
+                : "bg-white border-slate-200 text-slate-900"
+            }`}
+          >
+            <X size={20} />
+          </Button>
+        </DialogClose>
+      </div>
+
       <div
-        ref={targetRef}
-        className={`p-6 rounded-[2rem] transition-all ${
-          isDark ? "bg-[#0f0a14] text-white" : "bg-white text-slate-900"
+        className={`p-6 rounded-[2.5rem] transition-all border shadow-2xl ${
+          isDark
+            ? "bg-[#0f0a14] text-white border-white/5"
+            : "bg-white text-slate-900 border-slate-100"
         }`}
       >
         {/* Header Section */}
         <div className="flex flex-col items-center text-center mb-8">
-          <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-500 mb-4">
+          <div
+            className={`w-16 h-16 ${statusBg} rounded-full flex items-center justify-center ${statusColor} mb-4`}
+          >
             {getIcon()}
           </div>
+
           <h2
             className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${
               isDark ? "text-zinc-500" : "text-slate-400"
@@ -69,12 +97,16 @@ export default function TransactionReceipt({
           >
             {data.provider || "Transaction Receipt"}
           </h2>
-          <div className="text-4xl font-black tracking-tight mb-2">
+
+          <div className="text-4xl font-black tracking-tighter mb-2">
             ₦{parseFloat(data.amount).toLocaleString()}
           </div>
-          <div className="flex items-center gap-1.5 text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full text-[11px] font-bold">
-            <CheckCircle2 size={14} />
-            {data.status.toUpperCase()}
+
+          <div
+            className={`flex items-center gap-1.5 ${statusBg} ${statusColor} px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider`}
+          >
+            {isFailed ? <AlertCircle size={14} /> : <CheckCircle2 size={14} />}
+            {data.status}
           </div>
         </div>
 
@@ -110,14 +142,17 @@ export default function TransactionReceipt({
                 >
                   Transaction No.
                 </span>
-                <span className="text-[12px] font-mono break-all max-w-[180px]">
+                <span className="text-[12px] font-mono opacity-80 break-all max-w-[180px]">
                   {data.ref}
                 </span>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 rounded-full"
+                onClick={() => copyToClipboard(data.ref)}
+                className={`h-8 w-8 rounded-full ${
+                  isDark ? "hover:bg-white/5" : "hover:bg-black/5"
+                }`}
               >
                 <Copy size={14} />
               </Button>
@@ -125,9 +160,10 @@ export default function TransactionReceipt({
           </div>
         </div>
 
-        {data.cashback && (
-          <div className="mt-4 flex justify-between items-center px-4 py-3 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
-            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
+        {/* Cashback Section (Only shown if success and exists) */}
+        {!isFailed && data.cashback && (
+          <div className="mt-4 flex justify-between items-center px-5 py-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
+            <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">
               Bonus Earned
             </span>
             <span className="text-sm font-black text-emerald-500">
@@ -135,24 +171,6 @@ export default function TransactionReceipt({
             </span>
           </div>
         )}
-      </div>
-
-      {/* Action Buttons (Non-PDF) */}
-      <div className="grid grid-cols-2 gap-3 px-2">
-        <Button
-          onClick={() => toPDF()}
-          variant="outline"
-          className={`h-14 rounded-2xl font-bold border-2 ${
-            isDark
-              ? "border-white/5 bg-zinc-900"
-              : "border-slate-100 bg-white text-slate-600"
-          }`}
-        >
-          <Download className="mr-2" size={18} /> Download
-        </Button>
-        <Button className="h-14 rounded-2xl bg-emerald-500 hover:bg-emerald-600 font-bold text-white shadow-lg shadow-emerald-500/20">
-          <Share2 className="mr-2" size={18} /> Share
-        </Button>
       </div>
     </div>
   );
