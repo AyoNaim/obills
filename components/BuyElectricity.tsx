@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { ChevronLeft, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Haptics, ImpactStyle, NCCotificationType } from "@capacitor/haptics";
+import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
 import { useRouter } from "next/navigation";
 import { ElectricityProviderModal } from "./ElectricityProvider";
 

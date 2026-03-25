@@ -9,7 +9,7 @@ import Link from "next/link";
 
 export default function ForgotPasswordEmail() {
   const router = useRouter();
-  const [email, setEmail] = useState("olatunjinaheem012@gmail.com");
+  const [email, setEmail] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [otp, setOtp] = useState(["", "", "", "", ""]); // 5-digit OTP
   const [timer, setTimer] = useState(60);
