@@ -22,6 +22,12 @@ const NETWORK_DATA = [
       "0906",
       "0913",
       "0916",
+      "0702",
+      "0704",
+      "0810",
+      "0814",
+      "0903",
+      "0913",
     ],
     icon: "/mtn-logo.svg",
     color: "bg-yellow-400",
@@ -29,7 +35,17 @@ const NETWORK_DATA = [
   {
     id: "2",
     name: "GLO",
-    prefixes: ["0805", "0807", "0705", "0815", "0811", "0905", "0915"],
+    prefixes: [
+      "0805",
+      "0807",
+      "0705",
+      "0815",
+      "0811",
+      "0905",
+      "0915",
+      "0805",
+      "0905",
+    ],
     icon: "/glo-logo.svg",
     color: "bg-green-500",
   },
@@ -47,6 +63,8 @@ const NETWORK_DATA = [
       "0907",
       "0912",
       "0917",
+      "0802",
+      "0901",
     ],
     icon: "/airtel-logo.svg",
     color: "bg-red-500",
@@ -63,12 +81,13 @@ const NETWORK_DATA = [
 export default function BuyDataPage() {
   const router = useRouter();
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [phoneNumber, setPhoneNumber] = useState("09032139771");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [balance, setBalance] = useState("0.00");
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingPlans, setIsFetchingPlans] = useState(true);
   const [allPlans, setAllPlans] = useState<any[]>([]);
   const [selectedNetwork, setSelectedNetwork] = useState(NETWORK_DATA[0]);
+  const [isManualNetwork, setIsManualNetwork] = useState(false); // New: Prevents auto-detect from fighting manual choice
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -77,7 +96,6 @@ export default function BuyDataPage() {
   useEffect(() => {
     const savedTheme = localStorage.getItem("app_theme");
     setIsDarkMode(savedTheme !== "light");
-
     const raw = localStorage.getItem("user_session");
     if (raw) {
       const session = JSON.parse(raw);
@@ -86,21 +104,18 @@ export default function BuyDataPage() {
     fetchPlans();
   }, []);
 
-  const getHandshake = () => {
-    const lagosTime = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Africa/Lagos",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(new Date());
-    const [d, m, y] = lagosTime.split("/");
-    return `Token ${y}${m}${d}`;
-  };
-
   const fetchPlans = async () => {
     try {
       setIsFetchingPlans(true);
-      const token = getHandshake();
+      const lagosTime = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Africa/Lagos",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date());
+      const [d, m, y] = lagosTime.split("/");
+      const token = `Token ${y}${m}${d}`;
+
       const response = await fetch(
         "https://obills.com.ng/app/api/data/plans/index.php",
         {
@@ -109,9 +124,7 @@ export default function BuyDataPage() {
         }
       );
       const result = await response.json();
-      if (result.status === "success") {
-        setAllPlans(result.data);
-      }
+      if (result.status === "success") setAllPlans(result.data);
     } catch (err) {
       console.error("Failed to load plans", err);
     } finally {
@@ -119,8 +132,9 @@ export default function BuyDataPage() {
     }
   };
 
+  // Improved Network Auto-Detection
   useEffect(() => {
-    if (phoneNumber.length >= 4) {
+    if (phoneNumber.length >= 4 && !isManualNetwork) {
       const prefix = phoneNumber.substring(0, 4);
       const detected = NETWORK_DATA.find((net) =>
         net.prefixes.includes(prefix)
@@ -130,31 +144,41 @@ export default function BuyDataPage() {
         Haptics.impact({ style: ImpactStyle.Light });
       }
     }
-  }, [phoneNumber]);
+    // Reset manual override if phone number is cleared
+    if (phoneNumber.length === 0) setIsManualNetwork(false);
+  }, [phoneNumber, isManualNetwork]);
+
+  const handleNetworkSelect = (net: any) => {
+    setSelectedNetwork(net);
+    setIsManualNetwork(true); // Locks the choice so auto-detect doesn't change it back
+  };
 
   const handlePurchase = async (e: React.MouseEvent, plan: any) => {
     e.stopPropagation();
-
-    // Basic validation
     if (phoneNumber.length < 11) {
       setMessage({ type: "error", text: "Enter valid 11-digit phone number" });
       return;
     }
-
     setIsLoading(true);
     setMessage(null);
     await Haptics.impact({ style: ImpactStyle.Heavy });
 
     try {
-      const authToken = getHandshake();
+      const lagosTime = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Africa/Lagos",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date());
+      const [d, m, y] = lagosTime.split("/");
+      const authToken = `Token ${y}${m}${d}`;
 
-      // Construct the payload exactly as requested
       const payload = {
-        network: String(selectedNetwork.id), // Ensure it's a string "1"
-        phone: phoneNumber, // "09032139771"
-        ref: `DATA_${Date.now()}`, // "DATA_1774159751553"
-        amount: String(plan.userprice), // "230"
-        plan: String(plan.planid), // Fallback check for the Plan ID
+        network: String(selectedNetwork.id),
+        phone: phoneNumber,
+        ref: `DATA_${Date.now()}`,
+        amount: String(plan.userprice),
+        plan: String(plan.planid),
       };
 
       const response = await fetch(
@@ -170,13 +194,10 @@ export default function BuyDataPage() {
       );
 
       const result = await response.json();
-
       if (result.status === "success" || result.status === "successful") {
-        // Logic for success
-        const updatedBalance = (
-          parseFloat(balance) - parseFloat(plan.userprice)
-        ).toFixed(2);
-        setBalance(updatedBalance);
+        setBalance((prev) =>
+          (parseFloat(prev) - parseFloat(plan.userprice)).toFixed(2)
+        );
         setMessage({
           type: "success",
           text: result.msg || "Purchased Successfully!",
@@ -193,13 +214,9 @@ export default function BuyDataPage() {
     }
   };
 
-  // Dynamically filter plans based on the selected network's ID
   const currentPlans = allPlans.filter(
     (plan) => String(plan.datanetwork) === selectedNetwork.id
   );
-
-  console.log("the current plans are: ", currentPlans);
-  console.log("the current selected id is: ", selectedNetwork.id);
 
   return (
     <div
@@ -250,7 +267,7 @@ export default function BuyDataPage() {
             isDarkMode ? "text-zinc-500" : "text-slate-400"
           }`}
         >
-          Feeding your connectivity for{" "}
+          Connectivity for{" "}
           <span className="text-emerald-500 uppercase font-black">
             {selectedNetwork.name}
           </span>
@@ -267,9 +284,9 @@ export default function BuyDataPage() {
         <NetworkModal
           isDark={isDarkMode}
           selected={selectedNetwork}
-          onSelect={setSelectedNetwork}
+          onSelect={handleNetworkSelect}
         />
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <label
             className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1 block ${
               isDarkMode ? "text-zinc-600" : "text-slate-300"
@@ -281,24 +298,15 @@ export default function BuyDataPage() {
             type="tel"
             maxLength={11}
             value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => {
+              setPhoneNumber(e.target.value.replace(/\D/g, ""));
+              setIsManualNetwork(false); // Typing again allows auto-detect to work
+            }}
             className="h-8 bg-transparent border-none text-xl font-black focus-visible:ring-0 p-0 placeholder:text-zinc-800"
             placeholder="08030000000"
           />
         </div>
       </div>
-
-      {message && (
-        <div
-          className={`mx-5 mb-6 p-4 rounded-2xl text-[12px] font-black text-center border animate-in slide-in-from-top-2 ${
-            message.type === "success"
-              ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-              : "bg-red-500/10 text-red-500 border-red-500/20"
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
 
       <div className="px-5 space-y-4 pb-10">
         <div className="flex justify-between items-center px-2">
@@ -317,19 +325,19 @@ export default function BuyDataPage() {
             <div
               key={plan.pId}
               onClick={(e) => !isLoading && handlePurchase(e, plan)}
-              className={`group rounded-[2rem] p-5 flex justify-between items-center border transition-all cursor-pointer active:scale-95 duration-300 ${
+              className={`group rounded-[2rem] p-5 flex justify-between items-center gap-3 border transition-all cursor-pointer active:scale-95 ${
                 isDarkMode
-                  ? "bg-[#1c1425] border-white/5 hover:border-emerald-500/30"
-                  : "bg-white border-slate-100 hover:border-emerald-200 shadow-sm"
+                  ? "bg-[#1c1425] border-white/5"
+                  : "bg-white border-slate-100 shadow-sm"
               }`}
             >
-              <div className="space-y-3">
-                <p className="text-2xl font-black tracking-tighter group-hover:text-emerald-500 transition-colors">
+              <div className="flex-1 min-w-0 space-y-2">
+                <p className="text-xl font-black tracking-tighter truncate group-hover:text-emerald-500 transition-colors">
                   {plan.name}
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <span
-                    className={`text-[9px] px-3 py-1 rounded-lg font-black uppercase tracking-tighter ${
+                    className={`text-[8px] px-2 py-1 rounded-md font-black uppercase ${
                       isDarkMode
                         ? "bg-zinc-800 text-zinc-400"
                         : "bg-slate-100 text-slate-500"
@@ -337,21 +345,19 @@ export default function BuyDataPage() {
                   >
                     {plan.day} Days
                   </span>
-                  <span className="bg-emerald-500/10 text-emerald-500 text-[9px] px-3 py-1 rounded-lg font-black uppercase tracking-tighter">
+                  <span className="bg-emerald-500/10 text-emerald-500 text-[8px] px-2 py-1 rounded-md font-black uppercase">
                     {plan.type}
                   </span>
                 </div>
               </div>
               <Button
                 disabled={isLoading}
-                className={`rounded-2xl font-black px-6 h-12 shadow-lg transition-all ${
-                  isDarkMode
-                    ? "bg-white text-black hover:bg-emerald-400"
-                    : "bg-slate-900 text-white hover:bg-emerald-500"
+                className={`rounded-xl font-black px-4 h-10 shrink-0 ${
+                  isDarkMode ? "bg-white text-black" : "bg-slate-900 text-white"
                 }`}
               >
                 {isLoading ? (
-                  <Loader2 className="animate-spin" size={20} />
+                  <Loader2 className="animate-spin" size={16} />
                 ) : (
                   `₦${plan.userprice}`
                 )}
