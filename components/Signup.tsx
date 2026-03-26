@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useRouter } from "next/navigation";
 import {
   Select,
   SelectContent,
@@ -62,6 +63,8 @@ const NIGERIAN_STATES = [
 ];
 
 export default function PersonalDetailsScreen() {
+  const router = useRouter();
+
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [state, setState] = useState("");
@@ -161,8 +164,11 @@ export default function PersonalDetailsScreen() {
     <div className="w-full max-w-[430px] mx-auto min-h-screen bg-white text-black flex flex-col font-sans relative overflow-hidden">
       <div className="flex-1 overflow-y-auto px-5 pb-40 [&::-webkit-scrollbar]:hidden">
         <div className="flex justify-between items-center mb-4 pt-4">
-          <button className="p-1 -ml-1 active:opacity-70 transition-opacity">
-            <ArrowLeft className="w-6 h-6 text-black" />
+          <button
+            onClick={() => router.back()}
+            className="p-1 -ml-1 active:opacity-70 transition-opacity"
+          >
+            <ArrowLeft className="w-7 h-7 text-black" />
           </button>
         </div>
 

@@ -131,7 +131,7 @@ export default function ForgotPasswordEmail() {
       {/* Top Navigation Bar */}
       <div className="flex justify-between items-center mb-10 pt-2">
         <button
-          onClick={() => router.back()} // Fixed back functionality
+          onClick={() => router.back()}
           className="p-1 -ml-1 active:opacity-70 transition-opacity"
         >
           <ArrowLeft className="w-7 h-7 text-black" />
