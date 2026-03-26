@@ -1,14 +1,14 @@
 package com.obills.app;
 
 import android.os.Bundle;
-import androidx.core.splashscreen.SplashScreen;
-
+import android.graphics.Color;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        SplashScreen.installSplashScreen(this); // Add this line
+    public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Force the window background to white programmatically
+        getWindow().getDecorView().setBackgroundColor(Color.WHITE);
     }
 }
