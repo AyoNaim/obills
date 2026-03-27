@@ -1,4 +1,4 @@
-name: Android Release Build
+name: Android Release APK Build
 
 on:
   push:
@@ -36,16 +36,16 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Build Unsigned Release Bundle (AAB)
+      - name: Build Unsigned Release APK
         run: |
           cd android
           chmod +x gradlew
-          # Changed from assembleDebug to bundleRelease to fix debugging error
-          bash ./gradlew bundleRelease
+          # assembleRelease creates an APK with debugging disabled
+          bash ./gradlew assembleRelease
 
-      - name: Upload Unsigned AAB
+      - name: Upload Unsigned APK
         uses: actions/upload-artifact@v4
         with:
-          name: obills-unsigned-release-bundle
-          # Path points to the production bundle instead of the debug apk
-          path: android/app/build/outputs/bundle/release/*.aab
+          name: obills-unsigned-release-apk
+          # Path points to the release APK folder
+          path: android/app/build/outputs/apk/release/*.apk
