@@ -89,7 +89,7 @@ const Login = () => {
       <div className="w-full max-w-sm flex flex-col items-center">
         {/* Logo */}
         <div className="mb-10">
-          <svg
+          {/* <svg
             width="50"
             height="50"
             viewBox="0 0 50 50"
@@ -109,7 +109,15 @@ const Login = () => {
               strokeWidth="4"
               strokeLinecap="round"
             />
-          </svg>
+          </svg> */}
+
+          <img
+            src={"./obills_color.png"}
+            alt="logo"
+            width={90}
+            height={90}
+            className=""
+          />
         </div>
 
         <h1 className="text-3xl font-bold tracking-tight mb-2 text-center w-full">

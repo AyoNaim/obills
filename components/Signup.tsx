@@ -128,7 +128,7 @@ export default function PersonalDetailsScreen() {
     setLoading(true);
     try {
       const response = await fetch(
-        "https://pancity.com.ng/app/api/user/signup/index.php",
+        "https://obills.com.ng/app/api/user/signup/index.php",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -194,7 +194,7 @@ export default function PersonalDetailsScreen() {
         </div>
 
         <div className="mb-6">
-          <svg
+          {/* <svg
             width="50"
             height="50"
             viewBox="0 0 50 50"
@@ -214,7 +214,14 @@ export default function PersonalDetailsScreen() {
               strokeWidth="4"
               strokeLinecap="round"
             />
-          </svg>
+          </svg> */}
+          <img
+            src={"./obills_color.png"}
+            alt="logo"
+            width={90}
+            height={90}
+            className=""
+          />
         </div>
 
         <h1 className="text-[32px] font-bold tracking-tight mb-3">
@@ -332,7 +339,7 @@ export default function PersonalDetailsScreen() {
           >
             I acknowledge that I have read and agree to{" "}
             <span className="text-yellow-600 underline underline-offset-2 font-medium">
-              Pancity's Agreements
+              Obills's Agreements
             </span>
           </label>
         </div>
