@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo, memo } from "react";
 import {
   ArrowLeft,
-  MessageSquare,
   EyeOff,
   Eye,
   XCircle,
@@ -62,9 +61,29 @@ const NIGERIAN_STATES = [
   "Zamfara",
 ];
 
+// Memoized State Selector to prevent re-rendering 37+ items on every keystroke
+const StateSelector = memo(
+  ({ onValueChange }: { onValueChange: (val: string) => void }) => (
+    <Select onValueChange={onValueChange}>
+      <SelectTrigger className="w-full h-14 bg-gray-50 border-gray-200 focus:ring-1 focus:ring-yellow-500 rounded-xl px-4 text-base">
+        <SelectValue placeholder="State of Residence" />
+      </SelectTrigger>
+      <SelectContent className="bg-white border-gray-200 max-h-[300px]">
+        {NIGERIAN_STATES.map((stateName) => (
+          <SelectItem key={stateName} value={stateName.toLowerCase()}>
+            {stateName}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+);
+StateSelector.displayName = "StateSelector";
+
 export default function PersonalDetailsScreen() {
   const router = useRouter();
 
+  // Form State
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [state, setState] = useState("");
@@ -77,23 +96,31 @@ export default function PersonalDetailsScreen() {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const passwordReqs = {
-    small: /[a-z]/.test(password),
-    capital: /[A-Z]/.test(password),
-    number: /[0-9]/.test(password),
-    special: /[^A-Za-z0-9]/.test(password),
-    length: password.length >= 8,
-  };
+  // Optimization: Only recalculate password requirements when password changes
+  const passwordReqs = useMemo(
+    () => ({
+      small: /[a-z]/.test(password),
+      capital: /[A-Z]/.test(password),
+      number: /[0-9]/.test(password),
+      special: /[^A-Za-z0-9]/.test(password),
+      length: password.length >= 8,
+    }),
+    [password]
+  );
 
-  const isFormValid =
-    firstName &&
-    lastName &&
-    email &&
-    state &&
-    phone &&
-    pin.length === 5 &&
-    Object.values(passwordReqs).every(Boolean) &&
-    agreed;
+  // Derived state for button disabled logic
+  const isFormValid = useMemo(
+    () =>
+      firstName.trim() !== "" &&
+      lastName.trim() !== "" &&
+      email.includes("@") &&
+      state !== "" &&
+      phone.length >= 10 &&
+      pin.length === 5 &&
+      Object.values(passwordReqs).every(Boolean) &&
+      agreed,
+    [firstName, lastName, email, state, phone, pin, passwordReqs, agreed]
+  );
 
   const handleSignup = async () => {
     if (!isFormValid) return;
@@ -101,7 +128,7 @@ export default function PersonalDetailsScreen() {
     setLoading(true);
     try {
       const response = await fetch(
-        "https://obills.com.ng/app/api/user/signup/index.php",
+        "https://pancity.com.ng/app/api/user/signup/index.php",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -121,11 +148,7 @@ export default function PersonalDetailsScreen() {
       const data = await response.json();
 
       if (data.status === "success") {
-        // 1. CLEAR PREVIOUS SESSION DATA TOTALLY
         localStorage.clear();
-        // Optional: If you use cookies for sessions, you'd clear them here too.
-
-        // 2. STORE IN THE REQUIRED NESTED FORMAT
         const storageData = {
           token: data.token,
           user_data: {
@@ -136,18 +159,16 @@ export default function PersonalDetailsScreen() {
             state: data.user_data.state,
             balance: String(data.user_data.balance || "0"),
             cashback: String(data.user_data.cashback || "0.00"),
-            token: data.token, // Including token inside user_data as requested
+            token: data.token,
           },
         };
 
-        // Store as individual keys and the combined object to match typical App patterns
         localStorage.setItem("user_token", storageData.token);
         localStorage.setItem(
           "user_data",
           JSON.stringify(storageData.user_data)
         );
 
-        // Redirect to dashboard
         window.location.href = "/dashboard";
       } else {
         alert(data.msg || "Registration failed");
@@ -227,18 +248,7 @@ export default function PersonalDetailsScreen() {
             className="w-full h-14 bg-gray-50 border-gray-200 focus-visible:ring-1 focus-visible:ring-yellow-500 rounded-xl pl-4 text-base"
           />
 
-          <Select onValueChange={setState}>
-            <SelectTrigger className="w-full h-14 bg-gray-50 border-gray-200 focus:ring-1 focus:ring-yellow-500 rounded-xl px-4 text-base">
-              <SelectValue placeholder="State of Residence" />
-            </SelectTrigger>
-            <SelectContent className="bg-white border-gray-200 max-h-[300px]">
-              {NIGERIAN_STATES.map((stateName) => (
-                <SelectItem key={stateName} value={stateName.toLowerCase()}>
-                  {stateName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <StateSelector onValueChange={setState} />
 
           <Input
             type="tel"
@@ -249,7 +259,7 @@ export default function PersonalDetailsScreen() {
           />
 
           <Input
-            type="password"
+            type="text"
             maxLength={5}
             inputMode="numeric"
             placeholder="5-Digit Transaction Pin"
@@ -339,16 +349,17 @@ export default function PersonalDetailsScreen() {
   );
 }
 
-function RequirementItem({
-  met,
-  text,
-  className = "",
-}: {
-  met: boolean;
-  text: string;
-  className?: string;
-}) {
-  return (
+// RequirementItem is also memoized for performance
+const RequirementItem = memo(
+  ({
+    met,
+    text,
+    className = "",
+  }: {
+    met: boolean;
+    text: string;
+    className?: string;
+  }) => (
     <div className={`flex items-center gap-2 ${className}`}>
       {met ? (
         <CheckCircle2 className="w-4 h-4 text-green-500" />
@@ -359,5 +370,6 @@ function RequirementItem({
         {text}
       </span>
     </div>
-  );
-}
+  )
+);
+RequirementItem.displayName = "RequirementItem";
