@@ -1,0 +1,52 @@
+name: Android APK Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  android-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      # Equivalent to Codemagic environment: java: 17
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+          cache: "gradle"
+
+      # Equivalent to Codemagic environment: node: 20
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Build Android APK
+        run: |
+          cd android
+          chmod +x gradlew
+          bash ./gradlew assembleDebug
+
+      # Equivalent to Codemagic artifacts
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
