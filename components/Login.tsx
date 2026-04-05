@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
@@ -12,6 +12,22 @@ const Login = () => {
   const [error, setError] = useState("");
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    const checkSession = () => {
+      const savedSession = localStorage.getItem("user_session");
+      const savedToken = localStorage.getItem("userToken");
+
+      if (savedSession && savedToken) {
+        router.replace("/dashboard");
+      } else {
+        setIsChecking(false); // No session found, show the login form
+      }
+    };
+
+    checkSession();
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,8 +69,6 @@ const Login = () => {
       }
 
       if (result.status === "success") {
-        // 4. SECURITY FIX: Do NOT fall back to 'today'.
-        // If the server doesn't provide a token, the account is not ready for services.
         if (!result.token || result.token.includes("FIX_DATABASE")) {
           setError(
             "Account Error: Your API Key is missing in the database. Please contact admin."
@@ -84,6 +98,25 @@ const Login = () => {
     }
   };
 
+  if (isChecking) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-white">
+        <div className="animate-pulse flex flex-col items-center">
+          <img
+            src="./obills_logo.png"
+            alt="logo"
+            width={100}
+            height={100}
+            className="mb-4"
+          />
+          <p className="text-xs text-gray-400 font-medium">
+            Securing session...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 py-12 font-sans text-black">
       <div className="w-full max-w-sm flex flex-col items-center">
@@ -110,14 +143,7 @@ const Login = () => {
               strokeLinecap="round"
             />
           </svg> */}
-
-          <img
-            src={"./obills_color.png"}
-            alt="logo"
-            width={90}
-            height={90}
-            className=""
-          />
+          <img src={"./obills_bg.png"} alt="logo" width={130} height={130} />
         </div>
 
         <h1 className="text-3xl font-bold tracking-tight mb-2 text-center w-full">

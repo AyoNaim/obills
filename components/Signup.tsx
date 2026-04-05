@@ -163,9 +163,9 @@ export default function PersonalDetailsScreen() {
           },
         };
 
-        localStorage.setItem("user_token", storageData.token);
+        localStorage.setItem("userToken", storageData.token);
         localStorage.setItem(
-          "user_data",
+          "user_session",
           JSON.stringify(storageData.user_data)
         );
 
@@ -215,13 +215,7 @@ export default function PersonalDetailsScreen() {
               strokeLinecap="round"
             />
           </svg> */}
-          <img
-            src={"./obills_color.png"}
-            alt="logo"
-            width={90}
-            height={90}
-            className=""
-          />
+          <img src={"./obills_bg.png"} alt="logo" width={130} height={130} />
         </div>
 
         <h1 className="text-[32px] font-bold tracking-tight mb-3">
@@ -339,7 +333,7 @@ export default function PersonalDetailsScreen() {
           >
             I acknowledge that I have read and agree to{" "}
             <span className="text-yellow-600 underline underline-offset-2 font-medium">
-              Obills's Agreements
+              Obill's Agreements
             </span>
           </label>
         </div>

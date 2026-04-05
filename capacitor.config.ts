@@ -1,12 +1,9 @@
-import { CapacitorConfig } from "@capacitor/cli";
+import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
   appId: "com.obills.app",
   appName: "Obills",
   webDir: "out",
-  server: {
-    androidScheme: "https",
-  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 3000,
@@ -14,7 +11,7 @@ const config: CapacitorConfig = {
       backgroundColor: "#ffffff",
       androidScaleType: "CENTER_CROP",
       showSpinner: false,
-      splashFullScreen: true, // This forces it to cover status bars
+      splashFullScreen: true,
       splashImmersive: true,
     },
   },

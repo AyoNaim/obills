@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { ChevronLeft, Loader2 } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { ChevronLeft, Loader2, XCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
@@ -26,8 +26,6 @@ const NETWORK_DATA = [
       "0704",
       "0810",
       "0814",
-      "0903",
-      "0913",
     ],
     icon: "/mtn-logo.svg",
     color: "bg-yellow-400",
@@ -35,22 +33,12 @@ const NETWORK_DATA = [
   {
     id: "2",
     name: "GLO",
-    prefixes: [
-      "0805",
-      "0807",
-      "0705",
-      "0815",
-      "0811",
-      "0905",
-      "0915",
-      "0805",
-      "0905",
-    ],
+    prefixes: ["0805", "0807", "0705", "0815", "0811", "0905", "0915"],
     icon: "/glo-logo.svg",
     color: "bg-green-500",
   },
   {
-    id: "4",
+    id: "3",
     name: "AIRTEL",
     prefixes: [
       "0802",
@@ -63,14 +51,12 @@ const NETWORK_DATA = [
       "0907",
       "0912",
       "0917",
-      "0802",
-      "0901",
     ],
     icon: "/airtel-logo.svg",
     color: "bg-red-500",
   },
   {
-    id: "3",
+    id: "4",
     name: "9MOBILE",
     prefixes: ["0809", "0817", "0818", "0909", "0908"],
     icon: "/9mobile-logo.svg",
@@ -87,22 +73,78 @@ export default function BuyDataPage() {
   const [isFetchingPlans, setIsFetchingPlans] = useState(true);
   const [allPlans, setAllPlans] = useState<any[]>([]);
   const [selectedNetwork, setSelectedNetwork] = useState(NETWORK_DATA[0]);
-  const [isManualNetwork, setIsManualNetwork] = useState(false); // New: Prevents auto-detect from fighting manual choice
+  const [isManualNetwork, setIsManualNetwork] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("app_theme");
-    setIsDarkMode(savedTheme !== "light");
+  const syncDataFromStorage = useCallback(() => {
     const raw = localStorage.getItem("user_session");
     if (raw) {
       const session = JSON.parse(raw);
       setBalance(session.user_data?.balance || "0.00");
     }
-    fetchPlans();
   }, []);
+
+  const handleRefresh = useCallback(async () => {
+    try {
+      const raw = localStorage.getItem("user_session");
+      if (!raw) return;
+      const session = JSON.parse(raw);
+      const phone = session.user_data?.phone || localStorage.getItem("phone");
+
+      if (!phone) throw new Error("No phone found for refresh");
+
+      const response = await fetch(
+        "https://obills.com.ng/app/api/user/app-refresh/index.php",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.status === "success") {
+        try {
+          await Haptics.impact({ style: ImpactStyle.Medium });
+        } catch (e) {}
+
+        const user = result.user_data;
+        if (user) {
+          localStorage.setItem("balance", user.balance);
+          localStorage.setItem("cashback", user.cashback);
+          localStorage.setItem("full_name", user.full_name);
+          if (result.token) localStorage.setItem("token", result.token);
+
+          const updatedSession = {
+            ...session,
+            token: result.token || session.token,
+            user_data: {
+              ...session.user_data,
+              ...user,
+            },
+          };
+          localStorage.setItem("user_session", JSON.stringify(updatedSession));
+        }
+        syncDataFromStorage();
+      }
+    } catch (error) {
+      console.error("Refresh failed:", error);
+    }
+  }, [syncDataFromStorage]);
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("app_theme");
+    setIsDarkMode(savedTheme !== "light");
+
+    // Initial Page Load: Sync and Refresh
+    syncDataFromStorage();
+    handleRefresh();
+    fetchPlans();
+  }, [handleRefresh, syncDataFromStorage]);
 
   const fetchPlans = async () => {
     try {
@@ -132,7 +174,6 @@ export default function BuyDataPage() {
     }
   };
 
-  // Improved Network Auto-Detection
   useEffect(() => {
     if (phoneNumber.length >= 4 && !isManualNetwork) {
       const prefix = phoneNumber.substring(0, 4);
@@ -144,13 +185,12 @@ export default function BuyDataPage() {
         Haptics.impact({ style: ImpactStyle.Light });
       }
     }
-    // Reset manual override if phone number is cleared
     if (phoneNumber.length === 0) setIsManualNetwork(false);
-  }, [phoneNumber, isManualNetwork]);
+  }, [phoneNumber, isManualNetwork, selectedNetwork.id]);
 
   const handleNetworkSelect = (net: any) => {
     setSelectedNetwork(net);
-    setIsManualNetwork(true); // Locks the choice so auto-detect doesn't change it back
+    setIsManualNetwork(true);
   };
 
   const handlePurchase = async (e: React.MouseEvent, plan: any) => {
@@ -159,6 +199,7 @@ export default function BuyDataPage() {
       setMessage({ type: "error", text: "Enter valid 11-digit phone number" });
       return;
     }
+
     setIsLoading(true);
     setMessage(null);
     await Haptics.impact({ style: ImpactStyle.Heavy });
@@ -194,23 +235,28 @@ export default function BuyDataPage() {
       );
 
       const result = await response.json();
+
       if (result.status === "success" || result.status === "successful") {
-        setBalance((prev) =>
-          (parseFloat(prev) - parseFloat(plan.userprice)).toFixed(2)
-        );
         setMessage({
           type: "success",
           text: result.msg || "Purchased Successfully!",
         });
         await Haptics.notification({ type: NotificationType.Success });
       } else {
-        throw new Error(result.msg || "Transaction Failed");
+        setMessage({ type: "error", text: result.msg || "Transaction Failed" });
+        await Haptics.notification({ type: NotificationType.Error });
       }
     } catch (err: any) {
-      setMessage({ type: "error", text: err.message || "Connection error" });
+      setMessage({
+        type: "error",
+        text: "Check your internet connection and try again.",
+      });
       await Haptics.notification({ type: NotificationType.Error });
     } finally {
+      // Refresh logic after transaction (successful or not)
+      await handleRefresh();
       setIsLoading(false);
+      setTimeout(() => setMessage(null), 6000);
     }
   };
 
@@ -220,10 +266,31 @@ export default function BuyDataPage() {
 
   return (
     <div
-      className={`min-h-screen pt-safe pb-10 font-sans ${
+      className={`min-h-screen w-[100vw] overflow-x-hidden pt-safe pb-10 font-sans ${
         isDarkMode ? "bg-[#0f0a14] text-white" : "bg-slate-50 text-slate-900"
       }`}
     >
+      {message && (
+        <div className="fixed top-10 left-5 right-5 z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
+          <div
+            className={`flex items-start gap-3 p-4 rounded-2xl shadow-2xl border ${
+              message.type === "success"
+                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                : "bg-red-500/10 border-red-500/20 text-red-500"
+            } backdrop-blur-xl`}
+          >
+            {message.type === "success" ? (
+              <CheckCircle2 size={20} className="shrink-0" />
+            ) : (
+              <XCircle size={20} className="shrink-0" />
+            )}
+            <p className="text-xs font-black leading-tight uppercase tracking-tight">
+              {message.text}
+            </p>
+          </div>
+        </div>
+      )}
+
       <header className="px-5 flex justify-between items-center py-6">
         <Button
           onClick={() => router.back()}
@@ -300,7 +367,7 @@ export default function BuyDataPage() {
             value={phoneNumber}
             onChange={(e) => {
               setPhoneNumber(e.target.value.replace(/\D/g, ""));
-              setIsManualNetwork(false); // Typing again allows auto-detect to work
+              setIsManualNetwork(false);
             }}
             className="h-8 bg-transparent border-none text-xl font-black focus-visible:ring-0 p-0 placeholder:text-zinc-800"
             placeholder="08030000000"
@@ -325,19 +392,19 @@ export default function BuyDataPage() {
             <div
               key={plan.pId}
               onClick={(e) => !isLoading && handlePurchase(e, plan)}
-              className={`group rounded-[2rem] p-5 flex justify-between items-center gap-3 border transition-all cursor-pointer active:scale-95 ${
+              className={`group rounded-[2rem] p-5 flex justify-between items-center gap-3 border transition-all cursor-pointer active:scale-90 w-full ${
                 isDarkMode
                   ? "bg-[#1c1425] border-white/5"
                   : "bg-white border-slate-100 shadow-sm"
               }`}
             >
-              <div className="flex-1 min-w-0 space-y-2">
+              <div className="flex-1 min-w-0 overflow-hidden">
                 <p className="text-xl font-black tracking-tighter truncate group-hover:text-emerald-500 transition-colors">
                   {plan.name}
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-2 mt-2">
                   <span
-                    className={`text-[8px] px-2 py-1 rounded-md font-black uppercase ${
+                    className={`text-[8px] px-2 py-1 rounded-md font-black uppercase shrink-0 ${
                       isDarkMode
                         ? "bg-zinc-800 text-zinc-400"
                         : "bg-slate-100 text-slate-500"
@@ -345,15 +412,17 @@ export default function BuyDataPage() {
                   >
                     {plan.day} Days
                   </span>
-                  <span className="bg-emerald-500/10 text-emerald-500 text-[8px] px-2 py-1 rounded-md font-black uppercase">
+                  <span className="bg-emerald-500/10 text-emerald-500 text-[8px] px-2 py-1 rounded-md font-black uppercase shrink-0">
                     {plan.type}
                   </span>
                 </div>
               </div>
               <Button
                 disabled={isLoading}
-                className={`rounded-xl font-black px-4 h-10 shrink-0 ${
-                  isDarkMode ? "bg-white text-black" : "bg-slate-900 text-white"
+                className={`rounded-xl font-black px-4 h-10 shrink-0 min-w-[80px] ${
+                  isDarkMode
+                    ? "bg-white text-black hover:bg-zinc-200"
+                    : "bg-slate-900 text-white hover:bg-slate-800"
                 }`}
               >
                 {isLoading ? (

@@ -8,13 +8,14 @@ import {
   Banknote,
   Landmark,
   History,
-  RefreshCw,
+  RotateCw,
   Copy,
   CheckCircle2,
   ShieldCheck,
   Plus,
   Loader2,
   AlertCircle,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -52,20 +53,83 @@ export default function FundAccountPage() {
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  // Updated manual data state to match database requirements
   const [manualData, setManualData] = useState({
     senderBank: "",
     senderName: "",
     amount: "",
   });
 
-  const fetchData = useCallback(async () => {
-    const raw = localStorage.getItem("user_session");
-    const token = localStorage.getItem("userToken");
-    if (!raw || !token) return;
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
-    const session = JSON.parse(raw);
-    setBalance(parseFloat(session.user_data?.balance || "0").toFixed(2));
+  // Synchronize state from LocalStorage
+  const syncDataFromStorage = useCallback(() => {
+    const raw = localStorage.getItem("user_session");
+    if (raw) {
+      const session = JSON.parse(raw);
+      setBalance(parseFloat(session.user_data?.balance || "0").toFixed(2));
+    }
+  }, []);
+
+  // Centralized Refresh Logic (Matching Profile Page)
+  const handleRefresh = useCallback(async () => {
+    try {
+      setIsRefreshing(true);
+      const raw = localStorage.getItem("user_session");
+      if (!raw) return;
+      const session = JSON.parse(raw);
+      const phone = session.user_data?.phone || localStorage.getItem("phone");
+
+      if (!phone) throw new Error("No phone found for refresh");
+
+      const response = await fetch(
+        "https://obills.com.ng/app/api/user/app-refresh/index.php",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.status === "success") {
+        try {
+          await Haptics.impact({ style: ImpactStyle.Medium });
+        } catch (e) {}
+
+        const user = result.user_data;
+        if (user) {
+          localStorage.setItem("balance", user.balance);
+          localStorage.setItem("full_name", user.full_name);
+          if (result.token) localStorage.setItem("token", result.token);
+
+          const updatedSession = {
+            ...session,
+            token: result.token || session.token,
+            user_data: {
+              ...session.user_data,
+              ...user,
+            },
+          };
+          localStorage.setItem("user_session", JSON.stringify(updatedSession));
+        }
+        syncDataFromStorage();
+      }
+    } catch (error) {
+      console.error("Refresh failed:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [syncDataFromStorage]);
+
+  // Initial Data Fetch
+  const fetchData = useCallback(async () => {
+    syncDataFromStorage();
+    const token = localStorage.getItem("userToken");
+    if (!token) return;
 
     try {
       const response = await fetch(API_BASE_URL, {
@@ -85,19 +149,13 @@ export default function FundAccountPage() {
     } catch (error) {
       console.error("Failed to load accounts:", error);
     }
-  }, []);
+  }, [syncDataFromStorage]);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("app_theme");
     setIsDarkMode(savedTheme !== "light");
     fetchData();
   }, [fetchData]);
-
-  const refreshBalance = async () => {
-    setIsRefreshing(true);
-    await fetchData();
-    setTimeout(() => setIsRefreshing(false), 800);
-  };
 
   const copyToClipboard = async (text: string, field: string) => {
     if (!text) return;
@@ -145,13 +203,13 @@ export default function FundAccountPage() {
   };
 
   const submitManualVerification = async () => {
-    // 1. Validation check
+    setMessage(null);
     if (
       !manualData.senderBank ||
       !manualData.senderName ||
       !manualData.amount
     ) {
-      toast.error("Required fields are missing");
+      setMessage({ type: "error", text: "Required fields are missing" });
       return;
     }
 
@@ -159,7 +217,6 @@ export default function FundAccountPage() {
     setIsSubmittingManual(true);
 
     try {
-      // 2. Initial Haptic feedback for interaction
       await Haptics.impact({ style: ImpactStyle.Medium });
 
       const response = await fetch(
@@ -178,37 +235,36 @@ export default function FundAccountPage() {
         }
       );
 
-      // 3. Check for HTTP errors (404, 500, etc) before parsing JSON
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Server error raw:", errorText);
-        throw new Error("Server responded with an error");
-      }
-
       const result = await response.json();
 
-      // 4. Handle logical success/failure from PHP
-      if (result.status === "success") {
+      if (result.status === "success" || result.status === "successful") {
         await Haptics.notification({ type: NotificationType.Success });
+        setMessage({
+          type: "success",
+          text: result.msg || "Proof submitted successfully!",
+        });
 
-        // Show success message immediately
-        toast.success(result.msg || "Proof submitted successfully!");
-
-        // Reset and close modals
-        setShowVerifyModal(false);
-        setShowManualModal(false);
-        setManualData({ senderBank: "", senderName: "", amount: "" });
+        setTimeout(() => {
+          setShowVerifyModal(false);
+          setShowManualModal(false);
+          setManualData({ senderBank: "", senderName: "", amount: "" });
+          setMessage(null);
+        }, 3000);
       } else {
-        // This catches the ["status" => "fail"] from your PHP
-        toast.error(result.msg || "Submission failed");
+        setMessage({ type: "error", text: result.msg || "Submission failed" });
         await Haptics.notification({ type: NotificationType.Error });
       }
     } catch (error) {
-      console.error("Manual Funding Error:", error);
-      toast.error("Connection error. Please try again.");
+      setMessage({
+        type: "error",
+        text: "Connection error. Please try again.",
+      });
       await Haptics.notification({ type: NotificationType.Error });
     } finally {
       setIsSubmittingManual(false);
+      if (message?.type === "error") {
+        setTimeout(() => setMessage(null), 5000);
+      }
     }
   };
 
@@ -241,6 +297,27 @@ export default function FundAccountPage() {
         </Button>
       </header>
 
+      {message && (
+        <div className="fixed top-10 left-5 right-5 z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
+          <div
+            className={`flex items-start gap-3 p-4 rounded-2xl shadow-2xl border ${
+              message.type === "success"
+                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                : "bg-red-500/10 border-red-500/20 text-red-500"
+            } backdrop-blur-xl`}
+          >
+            {message.type === "success" ? (
+              <CheckCircle2 size={20} className="shrink-0" />
+            ) : (
+              <XCircle size={20} className="shrink-0" />
+            )}
+            <p className="text-xs font-black leading-tight uppercase tracking-tight">
+              {message.text}
+            </p>
+          </div>
+        </div>
+      )}
+
       <Card
         className={`border-none rounded-[2rem] overflow-hidden mb-8 shadow-2xl ${
           isDarkMode ? "bg-[#1c1425]" : "bg-white"
@@ -256,13 +333,17 @@ export default function FundAccountPage() {
             >
               Available Balance
             </p>
-            <RefreshCw
-              size={12}
-              className={`cursor-pointer ${
-                isRefreshing ? "animate-spin" : ""
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className={`p-1 rounded-full transition-all active:scale-90 ${
+                isRefreshing
+                  ? "animate-spin opacity-100"
+                  : "opacity-40 hover:opacity-100"
               } ${isDarkMode ? "text-zinc-500" : "text-slate-400"}`}
-              onClick={refreshBalance}
-            />
+            >
+              <RotateCw size={12} />
+            </button>
           </div>
           <h2
             className={`text-4xl font-black tracking-tight z-10 ${
@@ -344,17 +425,17 @@ export default function FundAccountPage() {
                     instantly.
                   </p>
                 </div>
-                <Button
+                <button
                   onClick={handleGenerateAccount}
                   disabled={isGenerating}
-                  className="w-full h-12 rounded-full bg-blue-600 text-white font-bold"
+                  className="w-full h-12 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center"
                 >
                   {isGenerating ? (
                     <Loader2 className="animate-spin mr-2" />
                   ) : (
                     "Generate Accounts"
                   )}
-                </Button>
+                </button>
               </div>
             ) : (
               <div className="space-y-4">
@@ -458,7 +539,7 @@ export default function FundAccountPage() {
                   </p>
                 </div>
                 <Button
-                  onClick={() => copyToClipboard("9012345678", "admin_acc")}
+                  onClick={() => copyToClipboard("8035917659", "admin_acc")}
                   variant="ghost"
                   size="icon"
                   className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-500"

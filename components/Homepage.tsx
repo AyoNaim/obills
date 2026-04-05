@@ -65,6 +65,10 @@ const ServiceItem = ({
 export default function FintechDashboard() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isDarkMode, setIsDarkMode] = useState(true);
+
+  const adminPhone = "2347081671426";
+
+  // Initialize with empty strings to prevent hydration mismatch
   const [userData, setUserData] = useState({
     displayName: "User",
     balance: "0.00",
@@ -77,36 +81,63 @@ export default function FintechDashboard() {
   >(null);
   const [isProcessingTransfer, setIsProcessingTransfer] = useState(false);
 
+  /**
+   * UPDATED: Sync logic to match your flat localStorage structure
+   */
   const syncDataFromStorage = useCallback(() => {
     if (typeof window === "undefined") return;
-    const rawSession = localStorage.getItem("user_session");
-    if (rawSession) {
-      try {
-        const session = JSON.parse(rawSession);
-        const user = session.user_data;
 
-        setUserData({
-          displayName: user?.full_name?.split(" ")[0] || "User",
-          phone: user?.phone || "",
-          balance: parseFloat(user?.balance || 0).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-          }),
-          cashback: parseFloat(user?.cashback || 0).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-          }),
-        });
-      } catch (e) {
-        console.error("Failed to parse session", e);
+    // Check for your flat structure first, then fallback to session if needed
+    const id = localStorage.getItem("id") || localStorage.getItem("token");
+    const fullName = localStorage.getItem("full_name");
+    const balance = localStorage.getItem("balance");
+    const cashback = localStorage.getItem("cashback");
+    const phone = localStorage.getItem("phone");
+
+    if (id) {
+      setUserData({
+        displayName: fullName?.split(" ")[0] || "User",
+        phone: phone || "",
+        balance: parseFloat(balance || "0").toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+        }),
+        cashback: parseFloat(cashback || "0").toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+        }),
+      });
+    } else {
+      // Fallback: Check if it's wrapped in user_session (old logic)
+      const rawSession = localStorage.getItem("user_session");
+      if (rawSession) {
+        try {
+          const session = JSON.parse(rawSession);
+          const user = session.user_data || session; // handles nested or flat JSON
+          setUserData({
+            displayName: user?.full_name?.split(" ")[0] || "User",
+            phone: user?.phone || "",
+            balance: parseFloat(user?.balance || 0).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+            }),
+            cashback: parseFloat(user?.cashback || 0).toLocaleString(
+              undefined,
+              {
+                minimumFractionDigits: 2,
+              }
+            ),
+          });
+        } catch (e) {
+          console.error("Failed to parse session", e);
+        }
       }
     }
   }, []);
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     try {
-      const rawSession = localStorage.getItem("user_session");
-      if (!rawSession) return;
-      const session = JSON.parse(rawSession);
-      const phone = session.user_data?.phone;
+      const raw = localStorage.getItem("user_session");
+      if (!raw) return;
+      const session = JSON.parse(raw);
+      const phone = session.user_data?.phone || localStorage.getItem("phone");
 
       if (!phone) throw new Error("No phone found for refresh");
 
@@ -125,20 +156,37 @@ export default function FintechDashboard() {
         try {
           await Haptics.impact({ style: ImpactStyle.Medium });
         } catch (e) {}
-        const token = result.token || "";
-        const updatedUserData = result.user_data || {};
-        const sessionData = { token, user_data: updatedUserData };
 
-        localStorage.setItem("user_session", JSON.stringify(sessionData));
+        const user = result.user_data;
+        if (user) {
+          // 1. Update flat keys
+          localStorage.setItem("balance", user.balance);
+          localStorage.setItem("cashback", user.cashback);
+          localStorage.setItem("full_name", user.full_name);
+          if (result.token) localStorage.setItem("token", result.token);
+
+          // 2. Update user_session object to maintain synchronization
+          const updatedSession = {
+            ...session,
+            token: result.token || session.token,
+            user_data: {
+              ...session.user_data,
+              ...user,
+            },
+          };
+          localStorage.setItem("user_session", JSON.stringify(updatedSession));
+        }
+
         syncDataFromStorage();
       }
     } catch (error) {
       console.error("Refresh failed:", error);
     }
-  };
+  }, [syncDataFromStorage]);
 
   // Setup PullToRefreshJS
   useEffect(() => {
+    // Initialize PTR
     const ptr = PullToRefresh.init({
       mainElement: "body",
       onRefresh() {
@@ -146,14 +194,14 @@ export default function FintechDashboard() {
       },
       distThreshold: 60,
       distMax: 90,
-      instructionsPullToRefresh: "Pull down to refresh",
-      instructionsReleaseToRefresh: "Release to refresh",
-      instructionsRefreshing: "Refreshing...",
       shouldPullToRefresh: () => window.scrollY === 0,
     });
 
-    return () => ptr.destroy();
-  }, [syncDataFromStorage]);
+    // Cleanup
+    return () => {
+      ptr.destroy();
+    };
+  }, [handleRefresh]);
 
   const handleTransferCashback = async () => {
     setIsProcessingTransfer(true);
@@ -161,15 +209,19 @@ export default function FintechDashboard() {
       await Haptics.impact({ style: ImpactStyle.Medium });
     } catch (e) {}
     try {
-      const rawSession = localStorage.getItem("user_session");
-      if (!rawSession) return;
-      const session = JSON.parse(rawSession);
+      const raw = localStorage.getItem("user_session");
+      if (!raw) return;
+      const session = JSON.parse(raw);
+      const phone = session.user_data?.phone;
+
+      if (!phone) return;
+
       const response = await fetch(
         "https://obills.com.ng/app/api/user/cashback-transfer/index.php",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: session.user_data?.phone }),
+          body: JSON.stringify({ phone }),
         }
       );
       const result = await response.json();
@@ -186,12 +238,35 @@ export default function FintechDashboard() {
     }
   };
 
+  // --- ADDED: AUTO-REFRESH ON ARRIVAL ---
+  useEffect(() => {
+    handleRefresh();
+  }, [handleRefresh]);
+
   useEffect(() => {
     syncDataFromStorage();
+
+    // Theme setup
     const savedTheme = localStorage.getItem("app_theme");
     setIsDarkMode(savedTheme !== "light");
+
+    // Timer for greeting
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
+
+    // Cross-tab sync
+    const handleStorageChange = (e: StorageEvent) => {
+      if (
+        ["balance", "cashback", "full_name", "user_session"].includes(e.key!)
+      ) {
+        syncDataFromStorage();
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("storage", handleStorageChange);
+    };
   }, [syncDataFromStorage]);
 
   const toggleTheme = async () => {
@@ -212,11 +287,11 @@ export default function FintechDashboard() {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-500 pb-32 pt-safe px-6 ${
+      className={`min-h-screen w-[100vw] transition-colors duration-500 pb-32 pt-safe px-6 ${
         isDarkMode ? "bg-[#0f0a14] text-white" : "bg-slate-50 text-slate-900"
       }`}
     >
-      {/* Modals using Standard CSS logic */}
+      {/* Modals */}
       {activeModal && (
         <>
           <div
@@ -251,13 +326,13 @@ export default function FintechDashboard() {
                   </p>
                   <p className="text-4xl font-bold">₦{userData.cashback}</p>
                 </div>
-                <Button
+                <button
                   onClick={() => setActiveModal("action")}
-                  className="w-full py-7 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-lg active:scale-95 transition-transform"
+                  className="w-full py-7 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-lg active:scale-95 transition-transform flex items-center justify-center gap-2"
                 >
-                  <ArrowRightLeft className="mr-2 h-5 w-5" /> Transfer to Main
+                  <ArrowRightLeft className="h-5 w-5" /> Transfer to Main
                   Balance
-                </Button>
+                </button>
               </div>
             )}
 
@@ -335,7 +410,7 @@ export default function FintechDashboard() {
         </>
       )}
 
-      {/* Main Content */}
+      {/* Header */}
       <header className="flex justify-between items-center py-6">
         <div className="flex items-center gap-3">
           <Avatar className="h-12 w-12 border-2 border-emerald-500">
@@ -506,7 +581,6 @@ export default function FintechDashboard() {
             try {
               await Haptics.impact({ style: ImpactStyle.Medium });
             } catch (e) {}
-            const adminPhone = "2347081671426";
             window.open(
               `https://wa.me/${adminPhone}?text=hey there, i want to exchange my airtime for cash`,
               "_blank"
@@ -543,7 +617,7 @@ export default function FintechDashboard() {
               await Haptics.impact({ style: ImpactStyle.Medium });
             } catch (e) {}
             window.open(
-              `https://wa.me/2347081671426?text=${encodeURIComponent(
+              `https://wa.me/${adminPhone}?text=${encodeURIComponent(
                 "Hello, I am using the Obills App. I would like to suggest a new service: "
               )}`,
               "_blank"
@@ -576,7 +650,7 @@ export default function FintechDashboard() {
             } catch (e) {}
             const userName = userData.displayName || "User";
             window.open(
-              `https://wa.me/2347081671426?text=${encodeURIComponent(
+              `https://wa.me/${adminPhone}?text=${encodeURIComponent(
                 `Hello Admin, I am ${userName}. I need assistance with the Obills App.`
               )}`,
               "_blank"
@@ -587,7 +661,7 @@ export default function FintechDashboard() {
         </div>
       </div>
 
-      {/* Fixed Bottom Navigation */}
+      {/* Navigation */}
       <nav
         className={`fixed bottom-0 left-0 right-0 border-t px-8 py-4 flex justify-between items-end pb-8 backdrop-blur-xl transition-all duration-500 z-50 ${
           isDarkMode
