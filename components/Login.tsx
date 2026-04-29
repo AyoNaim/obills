@@ -103,7 +103,7 @@ const Login = () => {
       <div className="min-h-screen w-full flex items-center justify-center bg-white">
         <div className="animate-pulse flex flex-col items-center">
           <img
-            src="./obills_logo.png"
+            src="./obills_bg.png"
             alt="logo"
             width={100}
             height={100}
@@ -121,7 +121,7 @@ const Login = () => {
     <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 py-12 font-sans text-black">
       <div className="w-full max-w-sm flex flex-col items-center">
         {/* Logo */}
-        <div className="mb-10">
+        <div className="mb-5">
           {/* <svg
             width="50"
             height="50"
@@ -143,7 +143,7 @@ const Login = () => {
               strokeLinecap="round"
             />
           </svg> */}
-          <img src={"./obills_bg.png"} alt="logo" width={130} height={130} />
+          <img src={"./obills_bg.png"} alt="logo" width={100} height={100} />
         </div>
 
         <h1 className="text-3xl font-bold tracking-tight mb-2 text-center w-full">

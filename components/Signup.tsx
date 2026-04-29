@@ -333,7 +333,7 @@ export default function PersonalDetailsScreen() {
           >
             I acknowledge that I have read and agree to{" "}
             <span className="text-yellow-600 underline underline-offset-2 font-medium">
-              Obill's Agreements
+            obills's Agreements
             </span>
           </label>
         </div>

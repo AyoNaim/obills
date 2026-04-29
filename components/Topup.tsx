@@ -535,7 +535,7 @@ export default function FundAccountPage() {
                     Account Number
                   </p>
                   <p className="text-lg font-black tracking-wider">
-                    8035917659
+                    6100165594
                   </p>
                 </div>
                 <Button
